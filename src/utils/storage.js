@@ -14,6 +14,14 @@ const LEGACY_MIGRATION_KEY = '@TaskManager:encrypted-migration-complete';
 const LEGACY_KEYS = ['@TaskManager:tasks', '@TaskManager:categories', '@TaskManager:user'];
 let encryptionKeyPromise;
 
+export const DEFAULT_CATEGORIES = [
+  { id: '1', name: 'Muncă', color: '#4A90E2', icon: '💼' },
+  { id: '2', name: 'Personal', color: '#7ED321', icon: '🏠' },
+  { id: '3', name: 'Sănătate', color: '#F5A623', icon: '💪' },
+  { id: '4', name: 'Studiu', color: '#9B59B6', icon: '📚' },
+  { id: '5', name: 'Cumpărături', color: '#E74C3C', icon: '🛒' },
+];
+
 const cacheKey = (userId) => `${CACHE_PREFIX}:${userId}`;
 const queueKey = (userId) => `${QUEUE_PREFIX}:${userId}`;
 

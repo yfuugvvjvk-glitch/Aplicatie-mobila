@@ -88,26 +88,31 @@ export default function ProfileScreen({ navigation }) {
         <View style={styles.syncCard}>
           <View style={styles.syncTextBlock}>
             <Text style={styles.syncTitle}>
-              {syncStatus === 'synced' ? 'Date sincronizate' :
+              {user?.isDemo ? 'Mod demo — date locale' :
+                syncStatus === 'synced' ? 'Date sincronizate' :
                 syncStatus === 'syncing' ? 'Se sincronizează...' :
                   syncStatus === 'error' ? 'Sincronizare indisponibilă' :
                     pendingChanges ? 'Modificări în așteptare' : 'Date salvate local'}
             </Text>
             <Text style={styles.syncSubtitle}>
-              {syncError || (pendingChanges
+              {user?.isDemo
+                ? 'Datele sunt criptate și păstrate doar pe acest telefon; nu se sincronizează în cloud.'
+                : syncError || (pendingChanges
                 ? `${pendingChanges} modificări vor fi reîncercate automat.`
                 : 'Datele offline sunt criptate pe acest dispozitiv.')}
             </Text>
           </View>
-          <TouchableOpacity
-            style={styles.syncButton}
-            onPress={() => refreshData(user?.id)}
-            accessibilityRole="button"
-            accessibilityLabel="Sincronizează datele acum"
-            disabled={syncStatus === 'syncing'}
-          >
-            <Text style={styles.syncButtonText}>Reîncearcă</Text>
-          </TouchableOpacity>
+          {!user?.isDemo && (
+            <TouchableOpacity
+              style={styles.syncButton}
+              onPress={() => refreshData(user?.id)}
+              accessibilityRole="button"
+              accessibilityLabel="Sincronizează datele acum"
+              disabled={syncStatus === 'syncing'}
+            >
+              <Text style={styles.syncButtonText}>Reîncearcă</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
       {/* Rată de finalizare */}

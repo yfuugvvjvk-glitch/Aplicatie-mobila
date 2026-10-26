@@ -199,6 +199,7 @@ TaskManagerApp/
 - Sesiune persistentă în SecureStore
 - Delogare cu confirmare
 - Izolarea task-urilor și categoriilor cu politici RLS
+- Fără configurare Supabase, butonul „Continuă în modul demo” permite folosirea imediată a aplicației; modul demo nu este un cont și nu sincronizează date cu cloud-ul.
 
 ### 📋 Gestionare Task-uri
 
@@ -224,6 +225,7 @@ TaskManagerApp/
 - Cache și coadă de modificări criptate AES-GCM, per utilizator
 - Modificările făcute offline se trimit când aplicația revine în prim-plan; statusul și eventualele erori apar în Profil
 - Pentru prima conectare este necesară o conexiune și configurarea proiectului Supabase
+- În modul demo, toate funcțiile sunt locale; datele rămân criptate pe dispozitiv și nu se transferă între telefoane.
 
 ### 📊 Statistici și Profil
 

@@ -1,5 +1,6 @@
 import { requireSupabase } from './supabase';
 import {
+  DEFAULT_CATEGORIES,
   getCachedData,
   getPendingChanges,
   removePendingChange,
@@ -86,13 +87,7 @@ export async function syncUserData(userId) {
 
   let localCategories = cached.categories;
   if (categoryResponse.data.length === 0 && localCategories.length === 0) {
-    localCategories = [
-      { id: '1', name: 'Muncă', color: '#4A90E2', icon: '💼' },
-      { id: '2', name: 'Personal', color: '#7ED321', icon: '🏠' },
-      { id: '3', name: 'Sănătate', color: '#F5A623', icon: '💪' },
-      { id: '4', name: 'Studiu', color: '#9B59B6', icon: '📚' },
-      { id: '5', name: 'Cumpărături', color: '#E74C3C', icon: '🛒' },
-    ];
+    localCategories = DEFAULT_CATEGORIES;
     for (const category of localCategories) {
       await queueChange(userId, 'category', 'upsert', category);
     }

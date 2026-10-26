@@ -1,8 +1,20 @@
 import React, { createContext, useCallback, useContext, useEffect, useReducer, useRef } from 'react';
 import { AppState } from 'react-native';
-import { getCachedData, getPendingChanges } from '../utils/storage';
+import {
+  DEFAULT_CATEGORIES,
+  getCachedData,
+  getPendingChanges,
+  saveCachedData,
+} from '../utils/storage';
 import { getSyncErrorMessage, saveOfflineChange, syncUserData } from '../services/sync';
-import { requireSupabase, supabase } from '../services/supabase';
+import {
+  DEMO_USER_ID,
+  endDemoSession,
+  hasDemoSession,
+  requireSupabase,
+  startDemoSession,
+  supabase,
+} from '../services/supabase';
 
 const ACTIONS = {
   SET_DATA: 'SET_DATA',
@@ -82,7 +94,7 @@ export const TaskProvider = ({ children }) => {
   };
 
   const refreshData = useCallback(async (userId = currentUserIdRef.current) => {
-    if (!userId || !supabase) return;
+    if (!userId || !supabase || userId === DEMO_USER_ID) return;
     dispatch({
       type: ACTIONS.SET_SYNC,
       payload: { syncStatus: 'syncing', syncError: '' },
@@ -128,6 +140,29 @@ export const TaskProvider = ({ children }) => {
     let active = true;
     const initialize = async () => {
       try {
+        if (await hasDemoSession()) {
+          if (!active) return;
+          const user = {
+            id: DEMO_USER_ID,
+            name: 'Utilizator demo',
+            email: 'Date păstrate doar pe acest dispozitiv',
+            createdAt: new Date().toISOString(),
+            isDemo: true,
+          };
+          dispatch({ type: ACTIONS.SET_USER, payload: user });
+          const data = await getCachedData(user.id);
+          if (!data.categories.length) {
+            data.categories = DEFAULT_CATEGORIES;
+            await saveCachedData(user.id, data);
+          }
+          if (!active) return;
+          dispatch({ type: ACTIONS.SET_DATA, payload: data });
+          dispatch({
+            type: ACTIONS.SET_SYNC,
+            payload: { syncStatus: 'local', syncError: '', pendingChanges: 0 },
+          });
+          return;
+        }
         if (!supabase) return;
         const { data, error } = await supabase.auth.getSession();
         if (error) throw error;
@@ -162,6 +197,21 @@ export const TaskProvider = ({ children }) => {
 
   const mutate = async (entity, operation, record, action) => {
     if (!state.user) throw new Error('Autentifică-te pentru a modifica datele.');
+    if (state.user.isDemo) {
+      const cached = await getCachedData(state.user.id);
+      const key = entity === 'task' ? 'tasks' : 'categories';
+      const records = operation === 'delete'
+        ? cached[key].filter((item) => item.id !== record.id)
+        : [...cached[key].filter((item) => item.id !== record.id), record];
+      await saveCachedData(state.user.id, { ...cached, [key]: records });
+      if (currentUserIdRef.current !== state.user.id) return;
+      dispatch(action);
+      dispatch({
+        type: ACTIONS.SET_SYNC,
+        payload: { syncStatus: 'local', syncError: '', pendingChanges: 0 },
+      });
+      return;
+    }
     await saveOfflineChange(state.user.id, entity, operation, record);
     dispatch(action);
     await updatePendingCount(state.user.id);
@@ -212,6 +262,29 @@ export const TaskProvider = ({ children }) => {
     await refreshData(user.id);
   };
 
+  const continueAsDemo = async () => {
+    await startDemoSession();
+    const user = {
+      id: DEMO_USER_ID,
+      name: 'Utilizator demo',
+      email: 'Date păstrate doar pe acest dispozitiv',
+      createdAt: new Date().toISOString(),
+      isDemo: true,
+    };
+    const data = await getCachedData(user.id);
+    if (!data.categories.length) {
+      data.categories = DEFAULT_CATEGORIES;
+      await saveCachedData(user.id, data);
+    }
+    currentUserIdRef.current = user.id;
+    dispatch({ type: ACTIONS.SET_USER, payload: user });
+    dispatch({ type: ACTIONS.SET_DATA, payload: data });
+    dispatch({
+      type: ACTIONS.SET_SYNC,
+      payload: { syncStatus: 'local', syncError: '', pendingChanges: 0 },
+    });
+  };
+
   const register = async ({ name, email, password }) => {
     const client = requireSupabase();
     const { data, error } = await client.auth.signUp({
@@ -230,6 +303,12 @@ export const TaskProvider = ({ children }) => {
   };
 
   const logout = async () => {
+    if (state.user?.isDemo) {
+      await endDemoSession();
+      currentUserIdRef.current = undefined;
+      dispatch({ type: ACTIONS.LOGOUT });
+      return;
+    }
     const client = requireSupabase();
     const { error } = await client.auth.signOut({ scope: 'local' });
     if (error) throw error;
@@ -266,6 +345,7 @@ export const TaskProvider = ({ children }) => {
         toggleTask,
         addCategory,
         login,
+        continueAsDemo,
         register,
         logout,
         refreshData,

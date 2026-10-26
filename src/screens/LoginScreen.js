@@ -19,7 +19,7 @@ import { useTask } from '../context/TaskContext';
 import { isSupabaseConfigured } from '../services/supabase';
 
 export default function LoginScreen() {
-  const { login, register } = useTask();
+  const { login, register, continueAsDemo } = useTask();
   const [isRegister, setIsRegister] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -67,6 +67,17 @@ export default function LoginScreen() {
     }
   };
 
+  const handleDemo = async () => {
+    setLoading(true);
+    try {
+      await continueAsDemo();
+    } catch (error) {
+      Alert.alert('Aplicația nu a putut porni', error.message || 'Încearcă din nou.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -78,16 +89,13 @@ export default function LoginScreen() {
           <Text style={styles.emoji}>✅</Text>
           <Text style={styles.appName}>TaskManager</Text>
           <Text style={styles.subtitle}>Organizează-ți ziua cu ușurință</Text>
-          {!isSupabaseConfigured && (
-            <Text style={styles.configurationNotice}>
-              Backend neconfigurat. Completează fișierul .env conform README.md.
-            </Text>
-          )}
         </View>
 
         {/* Card formular */}
         <View style={styles.card}>
-          <Text style={styles.title}>{isRegister ? 'Cont nou' : 'Bun venit!'}</Text>
+          {isSupabaseConfigured ? (
+            <>
+              <Text style={styles.title}>{isRegister ? 'Cont nou' : 'Bun venit!'}</Text>
 
           {isRegister && (
             <View style={styles.field}>
@@ -160,6 +168,33 @@ export default function LoginScreen() {
                 : 'Nu ai cont? Înregistrează-te'}
             </Text>
           </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <Text style={styles.title}>Începe fără cont</Text>
+              <Text style={styles.configurationNotice}>
+                Poți folosi toate funcțiile acum. În modul demo, sarcinile sunt criptate
+                și salvate numai pe acest telefon; nu se sincronizează în cloud.
+              </Text>
+              <TouchableOpacity
+                style={[styles.btn, loading && styles.btnDisabled]}
+                onPress={handleDemo}
+                disabled={loading}
+                accessibilityRole="button"
+                accessibilityLabel="Continuă în modul demo"
+              >
+                {loading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.btnText}>Continuă în modul demo</Text>
+                )}
+              </TouchableOpacity>
+              <Text style={styles.demoFootnote}>
+                Pentru conturi și sincronizare între dispozitive, administratorul trebuie
+                să configureze proiectul Supabase.
+              </Text>
+            </>
+          )}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

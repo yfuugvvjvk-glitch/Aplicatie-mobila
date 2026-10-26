@@ -4,6 +4,8 @@ import * as SecureStore from 'expo-secure-store';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+const DEMO_SESSION_KEY = '@TaskManager:demo-session';
+export const DEMO_USER_ID = 'demo-device';
 
 const secureStorage = {
   async getItem(key) {
@@ -56,6 +58,13 @@ const secureStorage = {
 };
 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
+
+export const hasDemoSession = () => SecureStore.getItemAsync(DEMO_SESSION_KEY);
+
+export const startDemoSession = () =>
+  SecureStore.setItemAsync(DEMO_SESSION_KEY, 'active');
+
+export const endDemoSession = () => SecureStore.deleteItemAsync(DEMO_SESSION_KEY);
 
 export const supabase = isSupabaseConfigured
   ? createClient(supabaseUrl, supabaseAnonKey, {
