@@ -23,7 +23,15 @@ const FILTERS = [
 ];
 
 export default function HomeScreen({ navigation }) {
-  const { user, getFilteredTasks, getStats, filter, setFilter, categories } = useTask();
+  const {
+    user,
+    getFilteredTasks,
+    getStats,
+    filter,
+    setFilter,
+    categories,
+    refreshData,
+  } = useTask();
   const [search, setSearch] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
@@ -47,8 +55,11 @@ export default function HomeScreen({ navigation }) {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await new Promise((r) => setTimeout(r, 500));
-    setRefreshing(false);
+    try {
+      await refreshData(user?.id);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const getCategoryName = (categoryId) => {

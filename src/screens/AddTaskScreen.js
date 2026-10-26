@@ -2,7 +2,7 @@
  * Ecran pentru adăugarea sau editarea unui task
  * Refolosit atât pentru creare cât și pentru editare
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -70,12 +70,16 @@ export default function AddTaskScreen({ navigation, route }) {
       completedAt: existingTask?.completedAt || null,
     };
 
-    if (isEdit) {
-      await updateTask(taskData);
-    } else {
-      await addTask(taskData);
+    try {
+      if (isEdit) {
+        await updateTask(taskData);
+      } else {
+        await addTask(taskData);
+      }
+      navigation.goBack();
+    } catch (error) {
+      Alert.alert('Salvare eșuată', error.message || 'Task-ul nu a putut fi salvat.');
     }
-    navigation.goBack();
   };
 
   return (

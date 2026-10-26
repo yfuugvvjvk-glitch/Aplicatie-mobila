@@ -14,7 +14,17 @@ import {
 import { useTask } from '../context/TaskContext';
 
 export default function ProfileScreen({ navigation }) {
-  const { user, logout, getStats, tasks, categories } = useTask();
+  const {
+    user,
+    logout,
+    getStats,
+    tasks,
+    categories,
+    syncStatus,
+    syncError,
+    pendingChanges,
+    refreshData,
+  } = useTask();
   const stats = getStats();
 
   const handleLogout = () => {
@@ -23,7 +33,17 @@ export default function ProfileScreen({ navigation }) {
       'Ești sigur că vrei să te deconectezi?',
       [
         { text: 'Anulează', style: 'cancel' },
-        { text: 'Deconectează-te', style: 'destructive', onPress: logout },
+        {
+          text: 'Deconectează-te',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await logout();
+            } catch (error) {
+              Alert.alert('Deconectare eșuată', error.message || 'Încearcă din nou.');
+            }
+          },
+        },
       ]
     );
   };
@@ -64,6 +84,31 @@ export default function ProfileScreen({ navigation }) {
         <Text style={styles.userEmail}>{user?.email || ''}</Text>
         <Text style={styles.memberSince}>Membru din {formatDate(user?.createdAt)}</Text>
       </View>
+
+        <View style={styles.syncCard}>
+          <View style={styles.syncTextBlock}>
+            <Text style={styles.syncTitle}>
+              {syncStatus === 'synced' ? 'Date sincronizate' :
+                syncStatus === 'syncing' ? 'Se sincronizează...' :
+                  syncStatus === 'error' ? 'Sincronizare indisponibilă' :
+                    pendingChanges ? 'Modificări în așteptare' : 'Date salvate local'}
+            </Text>
+            <Text style={styles.syncSubtitle}>
+              {syncError || (pendingChanges
+                ? `${pendingChanges} modificări vor fi reîncercate automat.`
+                : 'Datele offline sunt criptate pe acest dispozitiv.')}
+            </Text>
+          </View>
+          <TouchableOpacity
+            style={styles.syncButton}
+            onPress={() => refreshData(user?.id)}
+            accessibilityRole="button"
+            accessibilityLabel="Sincronizează datele acum"
+            disabled={syncStatus === 'syncing'}
+          >
+            <Text style={styles.syncButtonText}>Reîncearcă</Text>
+          </TouchableOpacity>
+        </View>
 
       {/* Rată de finalizare */}
       <View style={styles.rateCard}>
@@ -187,6 +232,22 @@ const styles = StyleSheet.create({
   userName: { fontSize: 22, fontWeight: '800', color: '#fff', marginBottom: 4 },
   userEmail: { fontSize: 14, color: 'rgba(255,255,255,0.8)', marginBottom: 4 },
   memberSince: { fontSize: 12, color: 'rgba(255,255,255,0.6)' },
+  syncCard: {
+    marginHorizontal: 20,
+    marginTop: 16,
+    padding: 16,
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  syncTextBlock: { flex: 1 },
+  syncTitle: { color: '#2C3E6B', fontSize: 14, fontWeight: '700' },
+  syncSubtitle: { color: '#7B8AB8', fontSize: 12, marginTop: 4, lineHeight: 17 },
+  syncButton: { paddingHorizontal: 12, paddingVertical: 9, backgroundColor: '#E8EDFF', borderRadius: 9 },
+  syncButtonText: { color: '#4A6CF7', fontSize: 12, fontWeight: '700' },
   rateCard: {
     margin: 20,
     backgroundColor: '#fff',

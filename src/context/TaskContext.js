@@ -1,160 +1,257 @@
-/**
- * Context global al aplicației — gestionează starea task-urilor,
- * categoriilor și a utilizatorului curent (autentificare simplă).
- */
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
-import { getTasks, saveTasks, getCategories, saveCategories, getUser, saveUser, clearUser, addTask as addTaskStorage, updateTask as updateTaskStorage, deleteTask as deleteTaskStorage } from '../utils/storage';
+import React, { createContext, useCallback, useContext, useEffect, useReducer, useRef } from 'react';
+import { AppState } from 'react-native';
+import { getCachedData, getPendingChanges } from '../utils/storage';
+import { getSyncErrorMessage, saveOfflineChange, syncUserData } from '../services/sync';
+import { requireSupabase, supabase } from '../services/supabase';
 
-// ─── Tipuri acțiuni ───────────────────────────────────────────────────────────
 const ACTIONS = {
-  SET_TASKS: 'SET_TASKS',
+  SET_DATA: 'SET_DATA',
   ADD_TASK: 'ADD_TASK',
   UPDATE_TASK: 'UPDATE_TASK',
   DELETE_TASK: 'DELETE_TASK',
-  SET_CATEGORIES: 'SET_CATEGORIES',
   ADD_CATEGORY: 'ADD_CATEGORY',
   SET_USER: 'SET_USER',
   LOGOUT: 'LOGOUT',
   SET_LOADING: 'SET_LOADING',
   SET_FILTER: 'SET_FILTER',
+  SET_SYNC: 'SET_SYNC',
 };
 
-// ─── State inițial ────────────────────────────────────────────────────────────
 const initialState = {
   tasks: [],
   categories: [],
   user: null,
   loading: true,
-  filter: 'all', // all | active | completed
+  filter: 'all',
+  syncStatus: 'idle',
+  syncError: '',
+  pendingChanges: 0,
 };
 
-// ─── Reducer ──────────────────────────────────────────────────────────────────
 function taskReducer(state, action) {
   switch (action.type) {
-    case ACTIONS.SET_TASKS:
-      return { ...state, tasks: action.payload };
+    case ACTIONS.SET_DATA:
+      return { ...state, tasks: action.payload.tasks, categories: action.payload.categories };
     case ACTIONS.ADD_TASK:
       return { ...state, tasks: [...state.tasks, action.payload] };
     case ACTIONS.UPDATE_TASK:
       return {
         ...state,
-        tasks: state.tasks.map((t) =>
-          t.id === action.payload.id ? action.payload : t
-        ),
+        tasks: state.tasks.map((task) => task.id === action.payload.id ? action.payload : task),
       };
     case ACTIONS.DELETE_TASK:
-      return {
-        ...state,
-        tasks: state.tasks.filter((t) => t.id !== action.payload),
-      };
-    case ACTIONS.SET_CATEGORIES:
-      return { ...state, categories: action.payload };
+      return { ...state, tasks: state.tasks.filter((task) => task.id !== action.payload) };
     case ACTIONS.ADD_CATEGORY:
       return { ...state, categories: [...state.categories, action.payload] };
     case ACTIONS.SET_USER:
       return { ...state, user: action.payload };
     case ACTIONS.LOGOUT:
-      return { ...state, user: null };
+      return { ...state, user: null, tasks: [], categories: [], syncError: '', pendingChanges: 0 };
     case ACTIONS.SET_LOADING:
       return { ...state, loading: action.payload };
     case ACTIONS.SET_FILTER:
       return { ...state, filter: action.payload };
+    case ACTIONS.SET_SYNC:
+      return { ...state, ...action.payload };
     default:
       return state;
   }
 }
 
-// ─── Context ──────────────────────────────────────────────────────────────────
 const TaskContext = createContext(null);
+
+const mapUser = (user) => ({
+  id: user.id,
+  email: user.email || '',
+  name: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Utilizator',
+  createdAt: user.created_at,
+});
 
 export const TaskProvider = ({ children }) => {
   const [state, dispatch] = useReducer(taskReducer, initialState);
+  const currentUserId = state.user?.id;
+  const currentUserIdRef = useRef(currentUserId);
 
-  // Încărcăm datele la pornire
   useEffect(() => {
-    const loadData = async () => {
-      dispatch({ type: ACTIONS.SET_LOADING, payload: true });
-      const [tasks, categories, user] = await Promise.all([
-        getTasks(),
-        getCategories(),
-        getUser(),
-      ]);
-      dispatch({ type: ACTIONS.SET_TASKS, payload: tasks });
-      dispatch({ type: ACTIONS.SET_CATEGORIES, payload: categories });
-      if (user) dispatch({ type: ACTIONS.SET_USER, payload: user });
-      dispatch({ type: ACTIONS.SET_LOADING, payload: false });
-    };
-    loadData();
+    currentUserIdRef.current = currentUserId;
+  }, [currentUserId]);
+
+  const updatePendingCount = async (userId) => {
+    const changes = await getPendingChanges(userId);
+    dispatch({ type: ACTIONS.SET_SYNC, payload: { pendingChanges: changes.length } });
+  };
+
+  const refreshData = useCallback(async (userId = currentUserIdRef.current) => {
+    if (!userId || !supabase) return;
+    dispatch({
+      type: ACTIONS.SET_SYNC,
+      payload: { syncStatus: 'syncing', syncError: '' },
+    });
+    try {
+      const data = await syncUserData(userId);
+      if (currentUserIdRef.current !== userId) return;
+      dispatch({ type: ACTIONS.SET_DATA, payload: data });
+      const changes = await getPendingChanges(userId);
+      dispatch({
+        type: ACTIONS.SET_SYNC,
+        payload: {
+          syncStatus: changes.length ? 'pending' : 'synced',
+          pendingChanges: changes.length,
+          syncError: '',
+        },
+      });
+    } catch (error) {
+      let syncError = getSyncErrorMessage(error);
+      let pendingChanges = 0;
+      try {
+        const cached = await getCachedData(userId);
+        const changes = await getPendingChanges(userId);
+        if (currentUserIdRef.current !== userId) return;
+        dispatch({ type: ACTIONS.SET_DATA, payload: cached });
+        pendingChanges = changes.length;
+      } catch (storageError) {
+        syncError = `${syncError} Cache local: ${getSyncErrorMessage(storageError)}`;
+      }
+      if (currentUserIdRef.current !== userId) return;
+      dispatch({
+        type: ACTIONS.SET_SYNC,
+        payload: {
+          syncStatus: 'error',
+          pendingChanges,
+          syncError,
+        },
+      });
+    }
   }, []);
 
-  // ─── Acțiuni task-uri ─────────────────────────────────────────────────────
-  const addTask = async (task) => {
-    dispatch({ type: ACTIONS.ADD_TASK, payload: task });
-    await addTaskStorage(task);
+  useEffect(() => {
+    let active = true;
+    const initialize = async () => {
+      try {
+        if (!supabase) return;
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        if (!active || !data.session?.user) return;
+        const user = mapUser(data.session.user);
+        dispatch({ type: ACTIONS.SET_USER, payload: user });
+        dispatch({ type: ACTIONS.SET_DATA, payload: await getCachedData(user.id) });
+        await refreshData(user.id);
+      } catch (error) {
+        if (active) {
+          dispatch({
+            type: ACTIONS.SET_SYNC,
+            payload: { syncStatus: 'error', syncError: getSyncErrorMessage(error) },
+          });
+        }
+      } finally {
+        if (active) dispatch({ type: ACTIONS.SET_LOADING, payload: false });
+      }
+    };
+    initialize();
+    return () => {
+      active = false;
+    };
+  }, [refreshData]);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active' && currentUserId) refreshData(currentUserId);
+    });
+    return () => subscription.remove();
+  }, [currentUserId, refreshData]);
+
+  const mutate = async (entity, operation, record, action) => {
+    if (!state.user) throw new Error('Autentifică-te pentru a modifica datele.');
+    await saveOfflineChange(state.user.id, entity, operation, record);
+    dispatch(action);
+    await updatePendingCount(state.user.id);
+    refreshData(state.user.id);
   };
 
-  const updateTask = async (task) => {
-    dispatch({ type: ACTIONS.UPDATE_TASK, payload: task });
-    await updateTaskStorage(task);
-  };
+  const addTask = (task) => mutate('task', 'upsert', task, {
+    type: ACTIONS.ADD_TASK,
+    payload: task,
+  });
 
-  const deleteTask = async (id) => {
-    dispatch({ type: ACTIONS.DELETE_TASK, payload: id });
-    await deleteTaskStorage(id);
-  };
+  const updateTask = (task) => mutate('task', 'upsert', task, {
+    type: ACTIONS.UPDATE_TASK,
+    payload: task,
+  });
+
+  const deleteTask = (id) => mutate('task', 'delete', { id }, {
+    type: ACTIONS.DELETE_TASK,
+    payload: id,
+  });
 
   const toggleTask = async (id) => {
-    const task = state.tasks.find((t) => t.id === id);
+    const task = state.tasks.find((item) => item.id === id);
     if (!task) return;
-    const updated = { ...task, completed: !task.completed, completedAt: !task.completed ? new Date().toISOString() : null };
-    await updateTask(updated);
+    await updateTask({
+      ...task,
+      completed: !task.completed,
+      completedAt: !task.completed ? new Date().toISOString() : null,
+    });
   };
 
-  // ─── Acțiuni categorii ────────────────────────────────────────────────────
-  const addCategory = async (category) => {
-    const updated = [...state.categories, category];
-    dispatch({ type: ACTIONS.ADD_CATEGORY, payload: category });
-    await saveCategories(updated);
+  const addCategory = (category) => mutate('category', 'upsert', category, {
+    type: ACTIONS.ADD_CATEGORY,
+    payload: category,
+  });
+
+  const login = async ({ email, password }) => {
+    const client = requireSupabase();
+    const { data, error } = await client.auth.signInWithPassword({
+      email: email.trim().toLowerCase(),
+      password,
+    });
+    if (error) throw error;
+    if (!data.user) throw new Error('Supabase nu a returnat un utilizator autentificat.');
+    const user = mapUser(data.user);
+    dispatch({ type: ACTIONS.SET_USER, payload: user });
+    dispatch({ type: ACTIONS.SET_DATA, payload: await getCachedData(user.id) });
+    await refreshData(user.id);
   };
 
-  // ─── Autentificare ────────────────────────────────────────────────────────
-  const login = async (userData) => {
-    dispatch({ type: ACTIONS.SET_USER, payload: userData });
-    await saveUser(userData);
+  const register = async ({ name, email, password }) => {
+    const client = requireSupabase();
+    const { data, error } = await client.auth.signUp({
+      email: email.trim().toLowerCase(),
+      password,
+      options: { data: { full_name: name.trim() } },
+    });
+    if (error) throw error;
+    if (!data.session || !data.user) return { confirmationRequired: true };
+
+    const user = mapUser(data.user);
+    dispatch({ type: ACTIONS.SET_USER, payload: user });
+    dispatch({ type: ACTIONS.SET_DATA, payload: await getCachedData(user.id) });
+    await refreshData(user.id);
+    return { confirmationRequired: false };
   };
 
   const logout = async () => {
+    const client = requireSupabase();
+    const { error } = await client.auth.signOut({ scope: 'local' });
+    if (error) throw error;
     dispatch({ type: ACTIONS.LOGOUT });
-    await clearUser();
   };
 
-  // ─── Filtrare task-uri ────────────────────────────────────────────────────
-  const setFilter = (filter) => {
-    dispatch({ type: ACTIONS.SET_FILTER, payload: filter });
-  };
+  const setFilter = (filter) => dispatch({ type: ACTIONS.SET_FILTER, payload: filter });
 
   const getFilteredTasks = (categoryId = null) => {
-    let filtered = state.tasks;
-    if (categoryId) {
-      filtered = filtered.filter((t) => t.categoryId === categoryId);
-    }
-    switch (state.filter) {
-      case 'active':
-        return filtered.filter((t) => !t.completed);
-      case 'completed':
-        return filtered.filter((t) => t.completed);
-      default:
-        return filtered;
-    }
+    let tasks = state.tasks;
+    if (categoryId) tasks = tasks.filter((task) => task.categoryId === categoryId);
+    if (state.filter === 'active') return tasks.filter((task) => !task.completed);
+    if (state.filter === 'completed') return tasks.filter((task) => task.completed);
+    return tasks;
   };
 
-  // Statistici rapide
   const getStats = () => {
     const total = state.tasks.length;
-    const completed = state.tasks.filter((t) => t.completed).length;
+    const completed = state.tasks.filter((task) => task.completed).length;
     const active = total - completed;
     const overdue = state.tasks.filter(
-      (t) => !t.completed && t.dueDate && new Date(t.dueDate) < new Date()
+      (task) => !task.completed && task.dueDate && new Date(task.dueDate) < new Date()
     ).length;
     return { total, completed, active, overdue };
   };
@@ -169,7 +266,9 @@ export const TaskProvider = ({ children }) => {
         toggleTask,
         addCategory,
         login,
+        register,
         logout,
+        refreshData,
         setFilter,
         getFilteredTasks,
         getStats,
@@ -181,7 +280,7 @@ export const TaskProvider = ({ children }) => {
 };
 
 export const useTask = () => {
-  const ctx = useContext(TaskContext);
-  if (!ctx) throw new Error('useTask trebuie folosit în interiorul TaskProvider');
-  return ctx;
+  const context = useContext(TaskContext);
+  if (!context) throw new Error('useTask trebuie folosit în interiorul TaskProvider');
+  return context;
 };

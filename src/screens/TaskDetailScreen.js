@@ -56,12 +56,24 @@ export default function TaskDetailScreen({ navigation, route }) {
           text: 'Șterge',
           style: 'destructive',
           onPress: async () => {
-            await deleteTask(task.id);
-            navigation.goBack();
+            try {
+              await deleteTask(task.id);
+              navigation.goBack();
+            } catch (error) {
+              Alert.alert('Ștergere eșuată', error.message || 'Task-ul nu a putut fi șters.');
+            }
           },
         },
       ]
     );
+  };
+
+  const handleToggle = async () => {
+    try {
+      await toggleTask(task.id);
+    } catch (error) {
+      Alert.alert('Modificare eșuată', error.message || 'Task-ul nu a putut fi actualizat.');
+    }
   };
 
   return (
@@ -141,7 +153,7 @@ export default function TaskDetailScreen({ navigation, route }) {
       <View style={styles.actions}>
         <TouchableOpacity
           style={[styles.btn, styles.toggleBtn]}
-          onPress={() => toggleTask(task.id)}
+          onPress={handleToggle}
           accessibilityRole="button"
           accessibilityLabel={task.completed ? 'Marchează ca nefinalizat' : 'Marchează ca finalizat'}
         >

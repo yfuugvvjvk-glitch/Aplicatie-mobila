@@ -16,9 +16,10 @@ import {
   ScrollView,
 } from 'react-native';
 import { useTask } from '../context/TaskContext';
+import { isSupabaseConfigured } from '../services/supabase';
 
 export default function LoginScreen() {
-  const { login } = useTask();
+  const { login, register } = useTask();
   const [isRegister, setIsRegister] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -32,11 +33,13 @@ export default function LoginScreen() {
     if (isRegister && name.trim().length < 2) {
       newErrors.name = 'Numele trebuie să aibă minim 2 caractere.';
     }
-    if (!email.includes('@') || !email.includes('.')) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       newErrors.email = 'Adresa de email nu este validă.';
     }
-    if (password.length < 4) {
-      newErrors.password = 'Parola trebuie să aibă minim 4 caractere.';
+    if (password.length < (isRegister ? 8 : 1)) {
+      newErrors.password = isRegister
+        ? 'Parola trebuie să aibă minim 8 caractere.'
+        : 'Introdu parola.';
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -46,16 +49,19 @@ export default function LoginScreen() {
     if (!validate()) return;
     setLoading(true);
     try {
-      // Simulăm un delay de autentificare (înlocuiește cu API call real)
-      await new Promise((res) => setTimeout(res, 800));
-      await login({
-        id: Date.now().toString(),
-        name: isRegister ? name.trim() : email.split('@')[0],
-        email: email.trim().toLowerCase(),
-        createdAt: new Date().toISOString(),
-      });
-    } catch (e) {
-      Alert.alert('Eroare', 'A apărut o eroare. Încearcă din nou.');
+      if (isRegister) {
+        const result = await register({ name, email, password });
+        if (result.confirmationRequired) {
+          Alert.alert(
+            'Verifică adresa de email',
+            'Contul a fost creat. Confirmă adresa din mesajul primit, apoi autentifică-te.'
+          );
+        }
+      } else {
+        await login({ email, password });
+      }
+    } catch (error) {
+      Alert.alert('Autentificare eșuată', error.message || 'Încearcă din nou.');
     } finally {
       setLoading(false);
     }
@@ -72,6 +78,11 @@ export default function LoginScreen() {
           <Text style={styles.emoji}>✅</Text>
           <Text style={styles.appName}>TaskManager</Text>
           <Text style={styles.subtitle}>Organizează-ți ziua cu ușurință</Text>
+          {!isSupabaseConfigured && (
+            <Text style={styles.configurationNotice}>
+              Backend neconfigurat. Completează fișierul .env conform README.md.
+            </Text>
+          )}
         </View>
 
         {/* Card formular */}
@@ -116,6 +127,7 @@ export default function LoginScreen() {
               value={password}
               onChangeText={setPassword}
               secureTextEntry
+              autoComplete={isRegister ? 'new-password' : 'password'}
               accessibilityLabel="Câmp pentru parolă"
             />
             {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
@@ -124,7 +136,7 @@ export default function LoginScreen() {
           <TouchableOpacity
             style={[styles.btn, loading && styles.btnDisabled]}
             onPress={handleSubmit}
-            disabled={loading}
+            disabled={loading || !isSupabaseConfigured}
             accessibilityRole="button"
             accessibilityLabel={isRegister ? 'Creează cont' : 'Intră în aplicație'}
           >
@@ -161,6 +173,13 @@ const styles = StyleSheet.create({
   emoji: { fontSize: 56, marginBottom: 8 },
   appName: { fontSize: 28, fontWeight: '800', color: '#2C3E6B', letterSpacing: 1 },
   subtitle: { fontSize: 14, color: '#7B8AB8', marginTop: 4 },
+  configurationNotice: {
+    color: '#A34600',
+    fontSize: 13,
+    textAlign: 'center',
+    marginTop: 12,
+    lineHeight: 18,
+  },
   card: {
     backgroundColor: '#fff',
     borderRadius: 20,

@@ -8,6 +8,7 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
+  Alert,
 } from 'react-native';
 import { useTask } from '../context/TaskContext';
 
@@ -19,6 +20,14 @@ const PRIORITY_COLORS = {
 
 export default function TaskCard({ task, category, onPress }) {
   const { toggleTask } = useTask();
+
+  const handleToggle = async () => {
+    try {
+      await toggleTask(task.id);
+    } catch (error) {
+      Alert.alert('Modificare eșuată', error.message || 'Task-ul nu a putut fi actualizat.');
+    }
+  };
 
   const isOverdue =
     !task.completed && task.dueDate && new Date(task.dueDate) < new Date();
@@ -58,7 +67,7 @@ export default function TaskCard({ task, category, onPress }) {
       {/* Checkbox */}
       <TouchableOpacity
         style={[styles.checkbox, task.completed && styles.checkboxDone]}
-        onPress={() => toggleTask(task.id)}
+        onPress={handleToggle}
         accessibilityRole="checkbox"
         accessibilityState={{ checked: task.completed }}
         accessibilityLabel={`Marchează task ${task.completed ? 'ca nefinalizat' : 'ca finalizat'}`}

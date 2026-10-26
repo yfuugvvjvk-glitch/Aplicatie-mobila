@@ -29,21 +29,25 @@ export default function CategoriesScreen({ navigation }) {
   const [nameError, setNameError] = useState('');
 
   const handleAddCategory = async () => {
-    if (newName.trim().length < 2) {
-      setNameError('Numele trebuie să aibă minim 2 caractere.');
+    if (newName.trim().length < 2 || newName.trim().length > 80) {
+      setNameError('Numele trebuie să aibă între 2 și 80 de caractere.');
       return;
     }
-    await addCategory({
-      id: Date.now().toString(),
-      name: newName.trim(),
-      color: selectedColor,
-      icon: selectedIcon,
-    });
-    setModalVisible(false);
-    setNewName('');
-    setSelectedColor(COLORS[0]);
-    setSelectedIcon(ICONS[0]);
-    setNameError('');
+    try {
+      await addCategory({
+        id: Date.now().toString(),
+        name: newName.trim(),
+        color: selectedColor,
+        icon: selectedIcon,
+      });
+      setModalVisible(false);
+      setNewName('');
+      setSelectedColor(COLORS[0]);
+      setSelectedIcon(ICONS[0]);
+      setNameError('');
+    } catch (error) {
+      Alert.alert('Salvare eșuată', error.message || 'Categoria nu a putut fi salvată.');
+    }
   };
 
   const selectedCategory = selectedCategoryId
@@ -164,6 +168,7 @@ export default function CategoriesScreen({ navigation }) {
               style={[styles.input, nameError && styles.inputError]}
               placeholder="ex: Proiecte..."
               value={newName}
+              maxLength={80}
               onChangeText={(t) => { setNewName(t); setNameError(''); }}
               accessibilityLabel="Nume categorie"
             />
