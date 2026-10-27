@@ -1,21 +1,25 @@
 /**
  * Ecranul de profil — statistici avansate, setări, delogare
  */
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  TextInput,
+  Modal,
   Alert,
   StatusBar,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTask } from '../context/TaskContext';
 
 export default function ProfileScreen({ navigation }) {
   const {
     user,
+    updateProfileName,
     logout,
     getStats,
     tasks,
@@ -25,7 +29,32 @@ export default function ProfileScreen({ navigation }) {
     pendingChanges,
     refreshData,
   } = useTask();
+  const insets = useSafeAreaInsets();
+  const [profileModalVisible, setProfileModalVisible] = useState(false);
+  const [profileName, setProfileName] = useState(user?.name || '');
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [profileSaveError, setProfileSaveError] = useState('');
   const stats = getStats();
+
+  const openProfileEditor = () => {
+    setProfileName(user?.name || '');
+    setProfileSaveError('');
+    setProfileModalVisible(true);
+  };
+
+  const handleSaveProfile = async () => {
+    if (savingProfile) return;
+    setSavingProfile(true);
+    setProfileSaveError('');
+    try {
+      await updateProfileName(profileName);
+      setProfileModalVisible(false);
+    } catch (error) {
+      setProfileSaveError(error.message || 'Profilul nu a putut fi salvat. Încearcă din nou.');
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -70,7 +99,11 @@ export default function ProfileScreen({ navigation }) {
     : 0;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.content, { paddingBottom: 40 + insets.bottom }]}
+    >
       <StatusBar barStyle="light-content" backgroundColor="#4A6CF7" />
 
       {/* Header profil */}
@@ -81,6 +114,14 @@ export default function ProfileScreen({ navigation }) {
           </Text>
         </View>
         <Text style={styles.userName}>{user?.name || 'Utilizator'}</Text>
+        <TouchableOpacity
+          style={styles.editProfileButton}
+          onPress={openProfileEditor}
+          accessibilityRole="button"
+          accessibilityLabel="Modifică numele profilului"
+        >
+          <Text style={styles.editProfileText}>Modifică profilul</Text>
+        </TouchableOpacity>
         <Text style={styles.userEmail}>{user?.email || ''}</Text>
         <Text style={styles.memberSince}>Membru din {formatDate(user?.createdAt)}</Text>
       </View>
@@ -208,6 +249,51 @@ export default function ProfileScreen({ navigation }) {
         <Text style={styles.logoutText}>🚪 Deconectare</Text>
       </TouchableOpacity>
     </ScrollView>
+    <Modal
+      visible={profileModalVisible}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setProfileModalVisible(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalCard}>
+          <Text style={styles.modalTitle}>Modifică profilul</Text>
+          <Text style={styles.modalLabel}>Nume afișat</Text>
+          <TextInput
+            style={styles.profileInput}
+            value={profileName}
+            onChangeText={(value) => { setProfileName(value); setProfileSaveError(''); }}
+            maxLength={60}
+            autoCapitalize="words"
+            accessibilityLabel="Nume afișat în profil"
+          />
+          {profileSaveError ? (
+            <Text style={styles.profileSaveError}>{profileSaveError}</Text>
+          ) : null}
+          <Text style={styles.modalHint}>Adresa de e-mail nu se modifică aici.</Text>
+          <View style={styles.modalActions}>
+            <TouchableOpacity
+              style={styles.modalCancelButton}
+              onPress={() => setProfileModalVisible(false)}
+              disabled={savingProfile}
+            >
+              <Text style={styles.modalCancelText}>Anulează</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modalSaveButton, savingProfile && styles.modalSaveDisabled]}
+              onPress={handleSaveProfile}
+              disabled={savingProfile}
+              accessibilityRole="button"
+            >
+              <Text style={styles.modalSaveText}>
+                {savingProfile ? 'Se salvează...' : 'Salvează'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+    </>
   );
 }
 
@@ -235,6 +321,15 @@ const styles = StyleSheet.create({
   },
   avatarText: { fontSize: 36, fontWeight: '800', color: '#fff' },
   userName: { fontSize: 22, fontWeight: '800', color: '#fff', marginBottom: 4 },
+  editProfileButton: {
+    marginTop: 4,
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+  editProfileText: { color: '#fff', fontSize: 12, fontWeight: '700' },
   userEmail: { fontSize: 14, color: 'rgba(255,255,255,0.8)', marginBottom: 4 },
   memberSince: { fontSize: 12, color: 'rgba(255,255,255,0.6)' },
   syncCard: {
@@ -353,4 +448,35 @@ const styles = StyleSheet.create({
     borderColor: '#F5B7B1',
   },
   logoutText: { color: '#E74C3C', fontWeight: '700', fontSize: 15 },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    padding: 24,
+    backgroundColor: 'rgba(25,35,65,0.45)',
+  },
+  modalCard: { padding: 20, borderRadius: 18, backgroundColor: '#fff' },
+  modalTitle: { color: '#2C3E6B', fontSize: 20, fontWeight: '800', marginBottom: 18 },
+  modalLabel: { color: '#5A6A9A', fontSize: 13, fontWeight: '700', marginBottom: 8 },
+  profileInput: {
+    borderWidth: 1,
+    borderColor: '#D0D8F0',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    color: '#2C3E6B',
+    fontSize: 15,
+  },
+  profileSaveError: { color: '#B42318', fontSize: 12, marginTop: 8, lineHeight: 17 },
+  modalHint: { color: '#7B8AB8', fontSize: 12, marginTop: 8 },
+  modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10, marginTop: 20 },
+  modalCancelButton: { paddingHorizontal: 14, paddingVertical: 11, borderRadius: 10 },
+  modalCancelText: { color: '#5A6A9A', fontWeight: '700' },
+  modalSaveButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    borderRadius: 10,
+    backgroundColor: '#4A6CF7',
+  },
+  modalSaveDisabled: { opacity: 0.6 },
+  modalSaveText: { color: '#fff', fontWeight: '700' },
 });

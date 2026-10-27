@@ -10,6 +10,7 @@ import { getSyncErrorMessage, saveOfflineChange, syncUserData } from '../service
 import {
   DEMO_USER_ID,
   endDemoSession,
+  getDemoSessionName,
   hasDemoSession,
   requireSupabase,
   startDemoSession,
@@ -162,7 +163,7 @@ export const TaskProvider = ({ children }) => {
           if (!active) return;
           const user = {
             id: DEMO_USER_ID,
-            name: 'Utilizator demo',
+            name: await getDemoSessionName(),
             email: 'Date păstrate doar pe acest dispozitiv',
             createdAt: new Date().toISOString(),
             isDemo: true,
@@ -301,7 +302,6 @@ export const TaskProvider = ({ children }) => {
   };
 
   const continueAsDemo = async () => {
-    await startDemoSession();
     const user = {
       id: DEMO_USER_ID,
       name: 'Utilizator demo',
@@ -309,6 +309,7 @@ export const TaskProvider = ({ children }) => {
       createdAt: new Date().toISOString(),
       isDemo: true,
     };
+    await startDemoSession(user.name);
     const data = await getCachedData(user.id);
     if (!data.categories.length) {
       data.categories = DEFAULT_CATEGORIES;
@@ -338,6 +339,27 @@ export const TaskProvider = ({ children }) => {
     dispatch({ type: ACTIONS.SET_DATA, payload: await getCachedData(user.id) });
     await refreshData(user.id);
     return { confirmationRequired: false };
+  };
+
+  const updateProfileName = async (name) => {
+    const trimmedName = name.trim();
+    if (trimmedName.length < 2) {
+      throw new Error('Numele trebuie să aibă cel puțin 2 caractere.');
+    }
+    if (!state.user) throw new Error('Autentifică-te pentru a modifica profilul.');
+
+    if (state.user.isDemo) {
+      await startDemoSession(trimmedName);
+      dispatch({ type: ACTIONS.SET_USER, payload: { ...state.user, name: trimmedName } });
+      return;
+    }
+
+    const { data, error } = await requireSupabase().auth.updateUser({
+      data: { full_name: trimmedName },
+    });
+    if (error) throw error;
+    if (!data.user) throw new Error('Supabase nu a returnat profilul actualizat.');
+    dispatch({ type: ACTIONS.SET_USER, payload: mapUser(data.user) });
   };
 
   const logout = async () => {
@@ -392,6 +414,7 @@ export const TaskProvider = ({ children }) => {
         login,
         continueAsDemo,
         register,
+        updateProfileName,
         logout,
         refreshData,
         setFilter,

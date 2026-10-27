@@ -10,12 +10,13 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
-  Alert,
   KeyboardAvoidingView,
+  Keyboard,
   Platform,
   Switch,
 } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { generateId } from "../utils/uuid";
 import { useTask } from "../context/TaskContext";
 
@@ -27,6 +28,7 @@ const PRIORITIES = [
 
 export default function AddTaskScreen({ navigation, route }) {
   const { addTask, updateTask, categories, tasks } = useTask();
+  const insets = useSafeAreaInsets();
   const editTaskId = route?.params?.taskId;
   const isEdit = !!editTaskId;
 
@@ -46,6 +48,8 @@ export default function AddTaskScreen({ navigation, route }) {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [hasReminder, setHasReminder] = useState(existingTask?.hasReminder || false);
   const [errors, setErrors] = useState({});
+  const [saveError, setSaveError] = useState("");
+  const [saving, setSaving] = useState(false);
 
   const formatDateDisplay = (date) => {
     if (!date || !(date instanceof Date) || isNaN(date.getTime())) return null;
@@ -66,7 +70,8 @@ export default function AddTaskScreen({ navigation, route }) {
   };
 
   const handleSave = async () => {
-    if (!validate()) return;
+    if (saving || !validate()) return;
+    setSaveError("");
 
     const taskData = {
       id: existingTask?.id || generateId(),
@@ -82,6 +87,8 @@ export default function AddTaskScreen({ navigation, route }) {
     };
 
     try {
+      setSaving(true);
+      Keyboard.dismiss();
       if (isEdit) {
         await updateTask(taskData);
       } else {
@@ -89,20 +96,21 @@ export default function AddTaskScreen({ navigation, route }) {
       }
       navigation.goBack();
     } catch (error) {
-      Alert.alert(
-        "Salvare eșuată",
-        error.message || "Task-ul nu a putut fi salvat.",
-      );
+      setSaveError(error.message || "Task-ul nu a putut fi salvat.");
+    } finally {
+      setSaving(false);
     }
   };
 
-  const onDateChange = (selectedDate) => {
-    if (selectedDate) {
+  const onDateChange = (_, selectedDate) => {
+    if (selectedDate instanceof Date && !Number.isNaN(selectedDate.getTime())) {
       // Normalizăm la miezul nopții local pentru a evita probleme de fus orar
       const normalized = new Date(selectedDate);
       normalized.setHours(12, 0, 0, 0); // prânz local — sigur în orice fus orar
       setDueDate(normalized);
+      setSaveError("");
     }
+    if (Platform.OS === "android") setShowDatePicker(false);
   };
 
   const onDateDismiss = () => {
@@ -116,7 +124,7 @@ export default function AddTaskScreen({ navigation, route }) {
     >
       <ScrollView
         style={styles.container}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingBottom: 40 + insets.bottom }]}
         keyboardShouldPersistTaps="handled"
       >
         <Text style={styles.screenTitle}>
@@ -130,7 +138,7 @@ export default function AddTaskScreen({ navigation, route }) {
             style={[styles.input, errors.title && styles.inputError]}
             placeholder="ex: Pregătire prezentare..."
             value={title}
-            onChangeText={setTitle}
+            onChangeText={(value) => { setTitle(value); setSaveError(""); }}
             maxLength={100}
             accessibilityLabel="Titlu task"
           />
@@ -297,14 +305,16 @@ export default function AddTaskScreen({ navigation, route }) {
         </View>
 
         {/* Buton salvare */}
+        {saveError ? <Text style={styles.saveError}>{saveError}</Text> : null}
         <TouchableOpacity
           style={styles.saveBtn}
           onPress={handleSave}
+          disabled={saving}
           accessibilityRole="button"
           accessibilityLabel={isEdit ? "Salvează modificările" : "Adaugă task"}
         >
           <Text style={styles.saveBtnText}>
-            {isEdit ? "💾 Salvează modificările" : "➕ Adaugă task"}
+            {saving ? "Se salvează..." : isEdit ? "💾 Salvează modificările" : "➕ Adaugă task"}
           </Text>
         </TouchableOpacity>
 
@@ -346,6 +356,14 @@ const styles = StyleSheet.create({
   inputError: { borderColor: "#E74C3C" },
   textArea: { height: 100, textAlignVertical: "top" },
   errorText: { color: "#E74C3C", fontSize: 12, marginTop: 4 },
+  saveError: {
+    color: "#B42318",
+    backgroundColor: "#FDECEA",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 12,
+    fontSize: 13,
+  },
   priorityRow: { flexDirection: "row", gap: 10 },
   priorityChip: {
     flex: 1,

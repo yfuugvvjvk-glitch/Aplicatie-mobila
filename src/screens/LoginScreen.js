@@ -12,20 +12,22 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  Alert,
   ScrollView,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTask } from '../context/TaskContext';
 import { isSupabaseConfigured } from '../services/supabase';
 
 export default function LoginScreen() {
   const { login, register, continueAsDemo } = useTask();
+  const insets = useSafeAreaInsets();
   const [isRegister, setIsRegister] = useState(false);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [formMessage, setFormMessage] = useState(null);
 
   // Validare câmpuri
   const validate = () => {
@@ -48,20 +50,24 @@ export default function LoginScreen() {
   const handleSubmit = async () => {
     if (!validate()) return;
     setLoading(true);
+    setFormMessage(null);
     try {
       if (isRegister) {
         const result = await register({ name, email, password });
         if (result.confirmationRequired) {
-          Alert.alert(
-            'Verifică adresa de email',
-            'Contul a fost creat. Confirmă adresa din mesajul primit, apoi autentifică-te.'
-          );
+          setFormMessage({
+            type: 'success',
+            text: 'Contul a fost creat. Confirmă adresa din mesajul primit, apoi autentifică-te.',
+          });
         }
       } else {
         await login({ email, password });
       }
     } catch (error) {
-      Alert.alert('Autentificare eșuată', error.message || 'Încearcă din nou.');
+      setFormMessage({
+        type: 'error',
+        text: error.message || 'Autentificarea a eșuat. Încearcă din nou.',
+      });
     } finally {
       setLoading(false);
     }
@@ -69,10 +75,14 @@ export default function LoginScreen() {
 
   const handleDemo = async () => {
     setLoading(true);
+    setFormMessage(null);
     try {
       await continueAsDemo();
     } catch (error) {
-      Alert.alert('Aplicația nu a putut porni', error.message || 'Încearcă din nou.');
+      setFormMessage({
+        type: 'error',
+        text: error.message || 'Aplicația nu a putut porni. Încearcă din nou.',
+      });
     } finally {
       setLoading(false);
     }
@@ -83,7 +93,11 @@ export default function LoginScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+      <ScrollView
+        contentContainerStyle={[styles.scroll, { paddingBottom: 24 + insets.bottom }]}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.emoji}>✅</Text>
@@ -96,6 +110,11 @@ export default function LoginScreen() {
           {isSupabaseConfigured ? (
             <>
               <Text style={styles.title}>{isRegister ? 'Cont nou' : 'Bun venit!'}</Text>
+              {formMessage ? (
+                <Text style={formMessage.type === 'error' ? styles.formError : styles.formSuccess}>
+                  {formMessage.text}
+                </Text>
+              ) : null}
 
           {isRegister && (
             <View style={styles.field}>
@@ -188,6 +207,7 @@ export default function LoginScreen() {
           ) : (
             <>
               <Text style={styles.title}>Începe fără cont</Text>
+              {formMessage ? <Text style={styles.formError}>{formMessage.text}</Text> : null}
               <Text style={styles.configurationNotice}>
                 Poți folosi toate funcțiile acum. În modul demo, sarcinile sunt criptate
                 și salvate numai pe acest telefon; nu se sincronizează în cloud.
@@ -229,6 +249,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
     marginTop: 12,
+    lineHeight: 18,
+  },
+  formError: {
+    color: '#B42318',
+    backgroundColor: '#FDECEA',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 16,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  formSuccess: {
+    color: '#176B3A',
+    backgroundColor: '#E8F7EE',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 16,
+    fontSize: 13,
     lineHeight: 18,
   },
   card: {

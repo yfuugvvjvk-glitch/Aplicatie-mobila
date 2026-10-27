@@ -68,8 +68,15 @@ export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
 export const hasDemoSession = () => SecureStore.getItemAsync(DEMO_SESSION_KEY);
 
-export const startDemoSession = () =>
-  SecureStore.setItemAsync(DEMO_SESSION_KEY, 'active');
+export const getDemoSessionName = async () => {
+  const sessionValue = await SecureStore.getItemAsync(DEMO_SESSION_KEY);
+  return sessionValue?.startsWith('name:')
+    ? sessionValue.slice('name:'.length)
+    : 'Utilizator demo';
+};
+
+export const startDemoSession = (name = 'Utilizator demo') =>
+  SecureStore.setItemAsync(DEMO_SESSION_KEY, `name:${name.trim()}`);
 
 export const endDemoSession = () => SecureStore.deleteItemAsync(DEMO_SESSION_KEY);
 
