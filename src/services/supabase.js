@@ -17,18 +17,12 @@ const customFetch = (url, options = {}) => {
   const headers = new Headers(options.headers || {});
   if (supabaseAnonKey) {
     headers.set('apikey', supabaseAnonKey);
-    // Dacă nu există Authorization cu un JWT real de user, punem cheia ca Bearer
     if (!headers.get('Authorization')) {
       headers.set('Authorization', `Bearer ${supabaseAnonKey}`);
     }
   }
   return fetch(url, { ...options, headers });
 };
-
-// SecureStore acceptă doar [a-zA-Z0-9._-] — sanitizăm orice altă cheie
-function sanitizeKey(key) {
-  return key.replace(/[^a-zA-Z0-9._-]/g, '_');
-}
 
 const secureStorage = {
   async getItem(key) {
@@ -56,7 +50,9 @@ const secureStorage = {
     for (let index = 0; index < codePoints.length; index += 350) {
       chunks.push(codePoints.slice(index, index + 350).join(''));
     }
-    const previousCount = Number(await SecureStore.getItemAsync(`${safeKey}_chunk_count`) || 0);
+    const previousCount = Number(
+      (await SecureStore.getItemAsync(`${safeKey}_chunk_count`)) || 0
+    );
     await Promise.all(
       chunks.map((chunk, index) =>
         SecureStore.setItemAsync(`${safeKey}_chunk_${index}`, chunk)
@@ -72,7 +68,9 @@ const secureStorage = {
   },
   async removeItem(key) {
     const safeKey = sanitizeKey(key);
-    const count = Number(await SecureStore.getItemAsync(`${safeKey}_chunk_count`) || 0);
+    const count = Number(
+      (await SecureStore.getItemAsync(`${safeKey}_chunk_count`)) || 0
+    );
     await Promise.all([
       SecureStore.deleteItemAsync(safeKey),
       SecureStore.deleteItemAsync(`${safeKey}_chunk_count`),
