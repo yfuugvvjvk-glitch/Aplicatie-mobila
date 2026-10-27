@@ -8,102 +8,130 @@ Aplicația permite utilizatorilor să gestioneze sarcini zilnice, să le organiz
 
 ---
 
-## 📱 CUM INSTALEZI ȘI RULEZI PE TELEFON (pas cu pas)
+## 📱 Pornirea aplicației pe telefon
 
-### Pasul 1 — Instalează Expo Go pe telefon
+### Cerințe
 
-- **Android** → deschide **Google Play Store** → caută **Expo Go** → instalează
-- **iPhone** → deschide **App Store** → caută **Expo Go** → instalează
+- Node.js LTS și Git instalate pe calculator.
+- Expo Go instalat pe telefon din Google Play sau App Store. Versiunea Expo Go trebuie să fie compatibilă cu Expo SDK 57 folosit de proiect.
+- Telefonul și calculatorul conectate la aceeași rețea Wi-Fi pentru conexiunea LAN.
 
-> Expo Go este aplicația „gazdă" care rulează proiectul tău fără să fie nevoie să construiești un APK.
+### 1. Obține proiectul
 
----
+Clonează repository-ul:
 
-### Pasul 2 — Deschide un terminal pe calculator
-
-Apasă `Win + R` → scrie `cmd` → Enter
-
-Sau în VS Code / Kiro: deschide terminalul integrat (`Ctrl + `` ` ``)
-
----
-
-### Pasul 3 — Navighează în folderul proiectului
-
-Copiază și lipește această comandă în terminal (înlocuiește calea dacă proiectul este în alt folder):
-
-```
-cd "C:\Users\tatar\OneDrive\Desktop\DanubiusMv\proiect\aplicatie mobila\Petrescu Cristian Aplicatie mobila"
+```bash
+git clone https://github.com/yfuugvvjvk-glitch/Aplicatie-mobila.git
+cd Aplicatie-mobila
 ```
 
-### Pasul 4 — Configurează backend-ul Supabase
+Sau deschide terminalul în folderul proiectului deja descărcat.
 
-1. Creează un proiect la [supabase.com](https://supabase.com/) și așteaptă inițializarea bazei de date.
-2. În **SQL Editor**, rulează integral scriptul din `supabase/schema.sql`. Acesta creează tabelele și politicile Row Level Security pentru izolarea datelor fiecărui utilizator.
-3. În setările proiectului, configurează **Authentication → URL Configuration** și opțiunile de confirmare a emailului după cerințele tale.
-4. Copiază `.env.example` în `.env` și completează URL-ul proiectului și cheia **publishable/anon** din setările Supabase.
-5. La prima autentificare, datele vechi din AsyncStorage (dacă există) sunt migrate criptat și asociate primului cont Supabase folosit pe acel dispozitiv.
+### 2. Instalează pachetele și verifică proiectul
 
-```env
-EXPO_PUBLIC_SUPABASE_URL=https://proiectul-tau.supabase.co
-EXPO_PUBLIC_SUPABASE_ANON_KEY=cheia-ta-publishable-sau-anon
+Din folderul rădăcină al proiectului:
+
+```bash
+npm ci
+npx expo lint
 ```
 
-Cheia publishable/anon este folosită de client și nu înlocuiește politicile RLS. **Nu introduce niciodată `service_role` sau alte chei secrete într-o variabilă `EXPO_PUBLIC_*` ori în aplicația mobilă.** Fișierul `.env` este exclus din Git.
+`npm ci` instalează versiunile fixate în `package-lock.json`. Dacă ai schimbat pachetele și lockfile-ul nu mai corespunde, folosește `npm install`.
 
-Fără aceste setări autentificarea reală nu este disponibilă; aplicația afișează un mesaj de configurare în loc să simuleze conectarea.
+### 3. Alege modul de utilizare
 
----
+**Demo/local:** pornește aplicația și apasă „Continuă fără cont (demo)”. Nu ai nevoie de proiect Supabase sau de fișier `.env`. Sarcinile și categoriile rămân pe telefonul curent și nu se sincronizează cu alte dispozitive.
 
-### Pasul 5 — Pornește serverul de dezvoltare
+**Cont și sincronizare cloud:** configurează Supabase conform secțiunii următoare înainte de a porni Expo. Înregistrarea și autentificarea cloud nu funcționează fără un proiect Supabase configurat și schema SQL aplicată.
 
+### 4. Pornește Expo
+
+```bash
+npx expo start
 ```
+
+Pentru depanare sau după schimbarea configurației, poți curăța cache-ul:
+
+```bash
 npx expo start --clear
 ```
 
-> `--clear` curăță cache-ul. Folosește-l prima dată sau după erori.
+Scanează codul QR din terminal cu Expo Go pe Android. Pe iPhone poți folosi Camera sau scanerul din Expo Go. La schimbarea valorilor din `.env`, oprește serverul și pornește-l din nou, deoarece valorile `EXPO_PUBLIC_*` sunt incluse la pornirea bundle-ului.
 
-Dacă îți cere să alegi portul, apasă `Y` (yes) pentru port alternativ.
+Telefonul și calculatorul trebuie să fie pe aceeași rețea pentru conexiunea LAN. Dacă rețeaua blochează dispozitivele între ele, încearcă o rețea personală/hotspot sau pornește cu `npx expo start --tunnel`.
 
----
+> Expo Go rulează proiectul pentru testare; GitHub nu găzduiește serverul Metro și nu distribuie automat o aplicație instalabilă. Pentru ca altcineva să testeze cu Expo Go, trebuie să aibă acces la serverul de dezvoltare pornit. Pentru distribuirea unei aplicații instalabile este necesar un build Android/iOS separat (de exemplu, cu EAS Build).
 
-### Pasul 6 — Scanează codul QR
+## ☁️ Configurarea Supabase (opțional, pentru conturi și sincronizare)
 
-În terminal va apărea un cod QR. Acum:
+Supabase este un serviciu cloud separat de GitHub. Repository-ul conține scriptul pentru baza de date, dar încărcarea codului pe GitHub **nu creează** proiectul Supabase și **nu rulează** automat SQL-ul.
 
-- **Android**: deschide aplicația **Expo Go** → apasă **"Scan QR Code"** → scanează
-- **iPhone**: deschide **Camera** (nu Expo Go) → îndreaptă spre QR → apasă notificarea
+### 1. Creează proiectul cloud
 
-> ⚠️ **Telefonul și calculatorul trebuie să fie pe același WiFi!**
-> Dacă ești pe WiFi de la facultate/rețea de campus și nu funcționează, încearcă să dai hotspot de pe telefon și conectează calculatorul la acel hotspot.
+1. Creează sau deschide un proiect în [Supabase](https://supabase.com/).
+2. Așteaptă ca baza de date să fie pornită.
+3. În Dashboard, deschide **SQL Editor**, creează o interogare nouă, copiază tot conținutul din `supabase/schema.sql` și apasă **Run**.
+4. Verifică în **Table Editor** că au fost create tabelele `categories` și `tasks`. Scriptul activează Row Level Security și politicile pentru utilizatorii autentificați.
+5. Din setările proiectului, copiază Project URL și cheia client **Publishable** (sau cheia legacy `anon`). Nu folosi cheia `service_role`/`secret` în aplicația mobilă.
 
----
+### 2. Configurează aplicația local
 
-### Pasul 7 — Aplicația se încarcă automat
+Creează `.env` din exemplul inclus. În macOS/Linux folosește:
 
-Prima încărcare durează ~30-60 secunde (compilare). La modificări ulterioare e instantaneu.
+```bash
+cp .env.example .env
+```
 
----
+În Windows PowerShell folosește `Copy-Item .env.example .env`, iar în Command Prompt folosește `copy .env.example .env`. Apoi deschide `.env` și completează valorile proiectului tău:
 
-## 🔧 Dacă apare o eroare pe telefon
+```env
+EXPO_PUBLIC_SUPABASE_URL=https://PROJECT_REF.supabase.co
+EXPO_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_your_public_key
+```
 
-### Eroarea `hitSlop cannot be cast` sau erori de gesture handler
+Fișierul `.env` este ignorat de Git; nu îl adăuga și nu îl trimite nimănui cu cheile reale.
 
-Aceasta a fost deja rezolvată prin downgrade la versiunea compatibilă. Asigură-te că ai rulat `--clear`.
+Cheia Publishable/anon este o cheie client publică și poate ajunge în pachetul mobil. Ea nu este un secret și nu înlocuiește RLS. **Nu pune niciodată `service_role`, `sb_secret_...`, parole sau alte secrete în `EXPO_PUBLIC_*`, în cod ori în GitHub.** Dacă o cheie secretă a fost expusă, roteaz-o din Dashboard-ul Supabase.
 
-### Eroarea `Network response timed out` sau QR nu funcționează
+### 3. Activează autentificarea prin email
 
-Telefonul nu găsește calculatorul. Soluții:
+În Supabase Dashboard verifică **Authentication → Providers → Email** și stabilește dacă înregistrarea necesită confirmarea adresei. Dacă confirmarea este activată, utilizatorul trebuie să confirme mesajul primit înainte de autentificare. În modul cloud, fiecare utilizator are date separate prin politicile RLS. În demo, nu se creează cont și nu se face sincronizare.
 
-1. Asigură-te că ești pe același WiFi
-2. În Expo Go, în loc să scanezi QR, apasă **"Enter URL manually"** și scrie:
-   ```
-   exp://IP_CALCULATOR:8081
-   ```
-   (IP-ul calculatorului îl găsești în terminal lângă `exp://`)
+Schema se aplică o singură dată pentru fiecare proiect Supabase. Dacă modifici ulterior `supabase/schema.sql`, rulează modificările necesare și în proiectul cloud; simpla actualizare a fișierului pe GitHub nu modifică baza de date deja creată.
 
-### Eroarea `Something went wrong` generică
+### Ce se trimite prin GitHub și ce rămâne separat
 
-În terminal apasă `R` pentru a reîncărca, sau repornește cu `npx expo start --clear`.
+| Resursă | Unde se păstrează | Se trimite pe GitHub? |
+| --- | --- | --- |
+| Codul aplicației și documentația | Repository GitHub | Da |
+| `supabase/schema.sql` | Repository; se aplică separat în SQL Editor | Da |
+| `.env.example` cu valori demonstrative | Repository | Da |
+| `.env` cu URL/cheia proiectului tău | Calculatorul dezvoltatorului | Nu |
+| Chei `secret`/`service_role` și parole | Niciodată în client sau repository | Nu |
+| Datele utilizatorilor și tabelele Supabase | Proiectul Supabase | Nu sunt încărcate prin `git push` |
+
+O persoană care clonează proiectul poate rula aplicația în demo fără credențiale. Pentru conturi și sincronizare, aceasta trebuie să configureze propriul proiect Supabase (sau să primească accesul corespunzător în proiectul cloud) și propriul `.env`.
+
+## 🐛 Depanare
+
+- **Expo Go spune că proiectul nu este compatibil:** instalează/actualizează Expo Go și verifică compatibilitatea cu SDK 57. Dacă versiunea Expo Go disponibilă pe telefon nu acceptă SDK-ul folosit, este necesar un development build compatibil, nu o schimbare a cheilor Supabase.
+- **QR-ul nu se conectează / apare timeout:** verifică aceeași rețea Wi-Fi, firewall-ul calculatorului și încearcă `npx expo start --tunnel`.
+- **Aplicația nu vede schimbările din `.env`:** oprește Metro (`Ctrl+C`) și pornește din nou cu `npx expo start --clear`.
+- **Înregistrarea sau sincronizarea cloud eșuează:** verifică URL-ul și cheia publică din `.env`, conexiunea proiectului Supabase, tabelele/politicile din `supabase/schema.sql` și confirmarea emailului. Un răspuns Supabase `503`/`PGRST002` indică o problemă de disponibilitate/schema cache la backend; verifică starea bazei în Dashboard și încearcă din nou după ce serviciul este sănătos.
+- **Vrei doar să testezi aplicația:** alege „Continuă fără cont (demo)”; Supabase nu este necesar pentru utilizarea locală.
+
+## 🚀 Actualizarea proiectului pe GitHub
+
+GitHub păstrează codul și istoricul proiectului; nu pornește aplicația și nu publică automat schema într-o bază de date. După modificări, din folderul repository-ului:
+
+```bash
+git status
+git add README.md
+git commit -m "Document app setup and Supabase configuration"
+git push origin master
+```
+
+Dacă ai modificat și alte fișiere urmărite, adaugă-le explicit cu `git add <cale>`. Înainte de commit verifică `git status` și asigură-te că `.env`, cheile secrete și fișierele generate nu apar în lista fișierelor staged. După push, documentația și scriptul SQL pot fi accesate de pe pagina repository-ului; schema tot trebuie rulată separat în Supabase.
 
 ---
 
@@ -162,7 +190,6 @@ Telefonul nu găsește calculatorul. Soluții:
 TaskManagerApp/
 ├── App.js                         # Punct de intrare
 ├── app.json                       # Configurație Expo
-├── babel.config.js                # Configurație Babel (reanimated plugin)
 ├── src/
 │   ├── context/
 │   │   └── TaskContext.js         # State global (Context API + useReducer)
