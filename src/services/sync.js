@@ -8,6 +8,8 @@ import {
   queueChange,
 } from '../utils/storage';
 
+const userSyncLocks = new Map();
+
 const toRemoteTask = (userId, task) => ({
   id: task.id,
   user_id: userId,
@@ -76,7 +78,7 @@ function mergePending(remoteRecords, changes) {
   return [...records.values()];
 }
 
-export async function syncUserData(userId) {
+async function syncUserDataUnlocked(userId) {
   const client = requireSupabase();
   const cached = await getCachedData(userId);
   const categoryResponse = await client
@@ -126,6 +128,23 @@ export async function syncUserData(userId) {
 
   await saveCachedData(userId, data);
   return data;
+}
+
+export async function syncUserData(userId) {
+  const previousSync = userSyncLocks.get(userId) || Promise.resolve();
+  let releaseSync;
+  const currentSync = new Promise((resolve) => {
+    releaseSync = resolve;
+  });
+  userSyncLocks.set(userId, currentSync);
+
+  try {
+    await previousSync;
+    return await syncUserDataUnlocked(userId);
+  } finally {
+    releaseSync();
+    if (userSyncLocks.get(userId) === currentSync) userSyncLocks.delete(userId);
+  }
 }
 
 export async function saveOfflineChange(userId, entity, operation, record) {

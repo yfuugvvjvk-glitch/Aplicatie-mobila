@@ -159,6 +159,21 @@ export const TaskProvider = ({ children }) => {
     let active = true;
     const initialize = async () => {
       try {
+        if (supabase) {
+          const { data, error } = await supabase.auth.getSession();
+          if (error) throw error;
+          if (!active) return;
+          if (data.session?.user) {
+            const user = mapUser(data.session.user);
+            await endDemoSession();
+            currentUserIdRef.current = user.id;
+            dispatch({ type: ACTIONS.SET_USER, payload: user });
+            dispatch({ type: ACTIONS.SET_DATA, payload: await getCachedData(user.id) });
+            await refreshData(user.id);
+            return;
+          }
+        }
+
         if (await hasDemoSession()) {
           if (!active) return;
           const user = {
@@ -168,6 +183,7 @@ export const TaskProvider = ({ children }) => {
             createdAt: new Date().toISOString(),
             isDemo: true,
           };
+          currentUserIdRef.current = user.id;
           dispatch({ type: ACTIONS.SET_USER, payload: user });
           const data = await getCachedData(user.id);
           if (!data.categories.length) {
@@ -182,14 +198,6 @@ export const TaskProvider = ({ children }) => {
           });
           return;
         }
-        if (!supabase) return;
-        const { data, error } = await supabase.auth.getSession();
-        if (error) throw error;
-        if (!active || !data.session?.user) return;
-        const user = mapUser(data.session.user);
-        dispatch({ type: ACTIONS.SET_USER, payload: user });
-        dispatch({ type: ACTIONS.SET_DATA, payload: await getCachedData(user.id) });
-        await refreshData(user.id);
       } catch (error) {
         if (active) {
           dispatch({
@@ -232,6 +240,7 @@ export const TaskProvider = ({ children }) => {
       return;
     }
     await saveOfflineChange(state.user.id, entity, operation, record);
+    if (currentUserIdRef.current !== state.user.id) return;
     dispatch(action);
     await updatePendingCount(state.user.id);
     refreshData(state.user.id);
@@ -296,6 +305,7 @@ export const TaskProvider = ({ children }) => {
     if (error) throw error;
     if (!data.user) throw new Error('Supabase nu a returnat un utilizator autentificat.');
     const user = mapUser(data.user);
+    currentUserIdRef.current = user.id;
     dispatch({ type: ACTIONS.SET_USER, payload: user });
     dispatch({ type: ACTIONS.SET_DATA, payload: await getCachedData(user.id) });
     await refreshData(user.id);
@@ -335,6 +345,7 @@ export const TaskProvider = ({ children }) => {
     if (!data.session || !data.user) return { confirmationRequired: true };
 
     const user = mapUser(data.user);
+    currentUserIdRef.current = user.id;
     dispatch({ type: ACTIONS.SET_USER, payload: user });
     dispatch({ type: ACTIONS.SET_DATA, payload: await getCachedData(user.id) });
     await refreshData(user.id);
@@ -372,6 +383,7 @@ export const TaskProvider = ({ children }) => {
     const client = requireSupabase();
     const { error } = await client.auth.signOut({ scope: 'local' });
     if (error) throw error;
+    currentUserIdRef.current = undefined;
     dispatch({ type: ACTIONS.LOGOUT });
   };
 
