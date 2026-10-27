@@ -11,6 +11,25 @@ function sanitizeKey(key) {
   return key.replace(/[^a-zA-Z0-9._-]/g, '_');
 }
 
+// Fetch custom care adaugă întotdeauna headerul apikey
+// Necesar pentru cheile sb_publishable_ care nu sunt JWT
+const customFetch = (url, options = {}) => {
+  const headers = new Headers(options.headers || {});
+  if (supabaseAnonKey) {
+    headers.set('apikey', supabaseAnonKey);
+    // Dacă nu există Authorization cu un JWT real de user, punem cheia ca Bearer
+    if (!headers.get('Authorization')) {
+      headers.set('Authorization', `Bearer ${supabaseAnonKey}`);
+    }
+  }
+  return fetch(url, { ...options, headers });
+};
+
+// SecureStore acceptă doar [a-zA-Z0-9._-] — sanitizăm orice altă cheie
+function sanitizeKey(key) {
+  return key.replace(/[^a-zA-Z0-9._-]/g, '_');
+}
+
 const secureStorage = {
   async getItem(key) {
     const safeKey = sanitizeKey(key);
@@ -87,6 +106,9 @@ export const supabase = isSupabaseConfigured
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: false,
+      },
+      global: {
+        fetch: customFetch,
       },
     })
   : null;
