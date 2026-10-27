@@ -19,11 +19,19 @@ create table if not exists public.tasks (
   completed boolean not null default false,
   created_at timestamptz not null default now(),
   completed_at timestamptz,
-  primary key (user_id, id),
-  foreign key (user_id, category_id)
-    references public.categories(user_id, id)
-    on delete set null (category_id)
+  primary key (user_id, id)
 );
+
+alter table public.tasks
+  drop constraint if exists tasks_user_category_fkey;
+
+alter table public.tasks
+  drop constraint if exists tasks_user_id_category_id_fkey;
+
+alter table public.tasks
+  add constraint tasks_user_category_fkey
+  foreign key (user_id, category_id)
+  references public.categories(user_id, id);
 
 create index if not exists tasks_user_due_date_idx
   on public.tasks (user_id, due_date)

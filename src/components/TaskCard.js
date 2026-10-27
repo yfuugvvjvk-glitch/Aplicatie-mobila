@@ -18,6 +18,16 @@ const PRIORITY_COLORS = {
   high: '#E74C3C',
 };
 
+// Compară doar ziua, ignorând ora — evită false "depășit" din cauza fusului orar
+function isDateOverdue(isoDate) {
+  if (!isoDate) return false;
+  const due = new Date(isoDate);
+  const today = new Date();
+  due.setHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
+  return due < today;
+}
+
 export default function TaskCard({ task, category, onPress }) {
   const { toggleTask } = useTask();
 
@@ -29,8 +39,7 @@ export default function TaskCard({ task, category, onPress }) {
     }
   };
 
-  const isOverdue =
-    !task.completed && task.dueDate && new Date(task.dueDate) < new Date();
+  const isOverdue = !task.completed && isDateOverdue(task.dueDate);
 
   const formatDueDate = (iso) => {
     if (!iso) return null;

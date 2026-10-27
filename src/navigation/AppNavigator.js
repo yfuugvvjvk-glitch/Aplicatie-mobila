@@ -50,18 +50,6 @@ function HomeStack() {
           headerShadowVisible: false,
         })}
       />
-      <Stack.Screen
-        name="Profile"
-        component={ProfileScreen}
-        options={{
-          headerShown: true,
-          title: 'Profilul meu',
-          headerStyle: { backgroundColor: '#4A6CF7' },
-          headerTintColor: '#fff',
-          headerTitleStyle: { fontWeight: '700' },
-          headerShadowVisible: false,
-        }}
-      />
     </Stack.Navigator>
   );
 }

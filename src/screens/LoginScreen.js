@@ -168,6 +168,22 @@ export default function LoginScreen() {
                 : 'Nu ai cont? Înregistrează-te'}
             </Text>
           </TouchableOpacity>
+
+          <View style={styles.divider}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>sau</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          <TouchableOpacity
+            style={[styles.demoBtn, loading && styles.btnDisabled]}
+            onPress={handleDemo}
+            disabled={loading}
+            accessibilityRole="button"
+            accessibilityLabel="Continuă fără cont în modul demo"
+          >
+            <Text style={styles.demoBtnText}>Continuă fără cont (demo)</Text>
+          </TouchableOpacity>
             </>
           ) : (
             <>
@@ -251,4 +267,27 @@ const styles = StyleSheet.create({
   btnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
   switchBtn: { marginTop: 16, alignItems: 'center' },
   switchText: { color: '#4A6CF7', fontSize: 14, fontWeight: '600' },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 16,
+    gap: 10,
+  },
+  dividerLine: { flex: 1, height: 1, backgroundColor: '#E0E6F0' },
+  dividerText: { color: '#9BA8C0', fontSize: 13, fontWeight: '600' },
+  demoBtn: {
+    borderWidth: 1.5,
+    borderColor: '#D0D8F0',
+    borderRadius: 14,
+    paddingVertical: 13,
+    alignItems: 'center',
+  },
+  demoBtnText: { color: '#5A6A9A', fontWeight: '600', fontSize: 15 },
+  demoFootnote: {
+    color: '#9BA8C0',
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 14,
+    lineHeight: 17,
+  },
 });

@@ -7,10 +7,10 @@ import {
 } from 'expo-crypto';
 import * as SecureStore from 'expo-secure-store';
 
-const CACHE_PREFIX = '@TaskManager:v2';
-const QUEUE_PREFIX = '@TaskManager:sync:v1';
-const ENCRYPTION_KEY = '@TaskManager:offline-encryption-key';
-const LEGACY_MIGRATION_KEY = '@TaskManager:encrypted-migration-complete';
+const CACHE_PREFIX = 'TaskManager_v2';
+const QUEUE_PREFIX = 'TaskManager_sync_v1';
+const ENCRYPTION_KEY = 'TaskManager_offline_encryption_key';
+const LEGACY_MIGRATION_KEY = 'TaskManager_encrypted_migration_complete';
 const LEGACY_KEYS = ['@TaskManager:tasks', '@TaskManager:categories', '@TaskManager:user'];
 let encryptionKeyPromise;
 
@@ -22,8 +22,8 @@ export const DEFAULT_CATEGORIES = [
   { id: '5', name: 'Cumpărături', color: '#E74C3C', icon: '🛒' },
 ];
 
-const cacheKey = (userId) => `${CACHE_PREFIX}:${userId}`;
-const queueKey = (userId) => `${QUEUE_PREFIX}:${userId}`;
+const cacheKey = (userId) => `${CACHE_PREFIX}_${userId}`;
+const queueKey = (userId) => `${QUEUE_PREFIX}_${userId}`;
 
 function utf8Bytes(value) {
   const encoded = encodeURIComponent(value);
@@ -112,7 +112,7 @@ async function getEncryptionKey() {
         keyHex = await key.encoded('hex');
         await SecureStore.setItemAsync(ENCRYPTION_KEY, keyHex);
       }
-      return AESEncryptionKey.import(keyHex, 'hex');
+      return await AESEncryptionKey.import(keyHex, 'hex');
     })();
   }
   try {

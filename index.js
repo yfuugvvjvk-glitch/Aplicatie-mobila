@@ -1,3 +1,5 @@
+// Polyfill-uri necesare înainte de orice alt import
+import 'react-native-url-polyfill/auto';
 import { registerRootComponent } from 'expo';
 
 import App from './App';

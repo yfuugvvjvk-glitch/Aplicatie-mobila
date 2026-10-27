@@ -18,6 +18,17 @@ const PRIORITY_CONFIG = {
   high: { label: 'Ridicată', color: '#E74C3C', bg: '#FDECEA', icon: '🔴' },
 };
 
+// Compară doar ziua, ignorând ora — evită false "depășit" din cauza fusului orar
+function isDateOverdue(isoDate) {
+  if (!isoDate) return false;
+  const due = new Date(isoDate);
+  const today = new Date();
+  // Resetăm ora la miezul nopții local pentru ambele date
+  due.setHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
+  return due < today;
+}
+
 export default function TaskDetailScreen({ navigation, route }) {
   const { taskId } = route.params;
   const { tasks, categories, toggleTask, deleteTask } = useTask();
@@ -34,8 +45,7 @@ export default function TaskDetailScreen({ navigation, route }) {
   const category = categories.find((c) => c.id === task.categoryId);
   const priority = PRIORITY_CONFIG[task.priority] || PRIORITY_CONFIG.medium;
 
-  const isOverdue =
-    !task.completed && task.dueDate && new Date(task.dueDate) < new Date();
+  const isOverdue = !task.completed && isDateOverdue(task.dueDate);
 
   const formatDate = (iso) => {
     if (!iso) return null;

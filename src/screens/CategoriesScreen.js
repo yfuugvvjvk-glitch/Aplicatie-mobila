@@ -1,5 +1,6 @@
 /**
  * Ecranul de categorii — vizualizare task-uri grupate pe categorii
+ * Include adăugare, editare și ștergere categorii
  */
 import React, { useState } from 'react';
 import {
@@ -13,41 +14,97 @@ import {
   Modal,
   StatusBar,
 } from 'react-native';
+import { generateId } from '../utils/uuid';
 import { useTask } from '../context/TaskContext';
 import TaskCard from '../components/TaskCard';
 
 const COLORS = ['#4A6CF7','#27AE60','#F5A623','#E74C3C','#9B59B6','#1ABC9C','#E67E22','#2980B9'];
 const ICONS = ['💼','🏠','💪','📚','🛒','🎯','🎨','🏋️','✈️','🎵','💡','🔧'];
 
+const EMPTY_FORM = { name: '', color: COLORS[0], icon: ICONS[0] };
+
 export default function CategoriesScreen({ navigation }) {
-  const { categories, addCategory, getFilteredTasks } = useTask();
+  const { categories, addCategory, updateCategory, deleteCategory, tasks, getFilteredTasks } = useTask();
   const [modalVisible, setModalVisible] = useState(false);
+  const [editingCategory, setEditingCategory] = useState(null); // null = adăugare, obiect = editare
   const [selectedCategoryId, setSelectedCategoryId] = useState(null);
-  const [newName, setNewName] = useState('');
-  const [selectedColor, setSelectedColor] = useState(COLORS[0]);
-  const [selectedIcon, setSelectedIcon] = useState(ICONS[0]);
+  const [form, setForm] = useState(EMPTY_FORM);
   const [nameError, setNameError] = useState('');
 
-  const handleAddCategory = async () => {
-    if (newName.trim().length < 2 || newName.trim().length > 80) {
+  // ─── Deschide modal pentru adăugare ──────────────────────────────────────────
+  const openAddModal = () => {
+    setEditingCategory(null);
+    setForm(EMPTY_FORM);
+    setNameError('');
+    setModalVisible(true);
+  };
+
+  // ─── Deschide modal pentru editare ───────────────────────────────────────────
+  const openEditModal = (category) => {
+    setEditingCategory(category);
+    setForm({ name: category.name, color: category.color, icon: category.icon });
+    setNameError('');
+    setModalVisible(true);
+  };
+
+  // ─── Salvare (adăugare sau editare) ──────────────────────────────────────────
+  const handleSave = async () => {
+    if (form.name.trim().length < 2 || form.name.trim().length > 80) {
       setNameError('Numele trebuie să aibă între 2 și 80 de caractere.');
       return;
     }
     try {
-      await addCategory({
-        id: Date.now().toString(),
-        name: newName.trim(),
-        color: selectedColor,
-        icon: selectedIcon,
-      });
+      if (editingCategory) {
+        // Editare categorie existentă
+        await updateCategory({
+          ...editingCategory,
+          name: form.name.trim(),
+          color: form.color,
+          icon: form.icon,
+        });
+      } else {
+        // Categorie nouă cu UUID unic
+        await addCategory({
+          id: generateId(),
+          name: form.name.trim(),
+          color: form.color,
+          icon: form.icon,
+        });
+      }
       setModalVisible(false);
-      setNewName('');
-      setSelectedColor(COLORS[0]);
-      setSelectedIcon(ICONS[0]);
+      setForm(EMPTY_FORM);
       setNameError('');
+      setEditingCategory(null);
     } catch (error) {
       Alert.alert('Salvare eșuată', error.message || 'Categoria nu a putut fi salvată.');
     }
+  };
+
+  // ─── Ștergere categorie cu confirmare ────────────────────────────────────────
+  const handleDeleteCategory = (category) => {
+    const count = tasks.filter((t) => t.categoryId === category.id).length;
+    const message = count > 0
+      ? `Această categorie conține ${count} task${count !== 1 ? '-uri' : ''}. Task-urile vor rămâne fără categorie.`
+      : 'Ești sigur că vrei să ștergi această categorie?';
+    Alert.alert(
+      `Șterge "${category.name}"`,
+      message,
+      [
+        { text: 'Anulează', style: 'cancel' },
+        {
+          text: 'Șterge',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // deleteCategory din context dezasociază task-urile și șterge categoria
+              await deleteCategory(category.id);
+            } catch (error) {
+              Alert.alert('Eroare', error.message || 'Categoria nu a putut fi ștearsă.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const selectedCategory = selectedCategoryId
@@ -59,7 +116,6 @@ export default function CategoriesScreen({ navigation }) {
     : [];
 
   if (selectedCategory) {
-    // Vizualizare task-uri din categorie
     return (
       <View style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor="#F0F4FF" />
@@ -107,7 +163,7 @@ export default function CategoriesScreen({ navigation }) {
         <Text style={styles.screenTitle}>Categorii</Text>
         <TouchableOpacity
           style={styles.addCatBtn}
-          onPress={() => setModalVisible(true)}
+          onPress={openAddModal}
           accessibilityRole="button"
           accessibilityLabel="Adaugă categorie nouă"
         >
@@ -124,6 +180,8 @@ export default function CategoriesScreen({ navigation }) {
         renderItem={({ item }) => {
           const count = getFilteredTasks(item.id).length;
           const completed = getFilteredTasks(item.id).filter(t => t.completed).length;
+          // Categoriile default (id 1-5) nu pot fi șterse
+          const isDefault = ['1','2','3','4','5'].includes(item.id);
           return (
             <TouchableOpacity
               style={[styles.catCard, { borderTopColor: item.color }]}
@@ -147,12 +205,35 @@ export default function CategoriesScreen({ navigation }) {
                   />
                 </View>
               )}
+              {/* Butoane editare / ștergere */}
+              <View style={styles.cardActions}>
+                <TouchableOpacity
+                  style={styles.editBtn}
+                  onPress={(e) => { e.stopPropagation(); openEditModal(item); }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Editează categoria ${item.name}`}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.editBtnText}>✏️</Text>
+                </TouchableOpacity>
+                {!isDefault && (
+                  <TouchableOpacity
+                    style={styles.deleteBtn}
+                    onPress={(e) => { e.stopPropagation(); handleDeleteCategory(item); }}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Șterge categoria ${item.name}`}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Text style={styles.deleteBtnText}>🗑️</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </TouchableOpacity>
           );
         }}
       />
 
-      {/* Modal adăugare categorie */}
+      {/* Modal adăugare / editare categorie */}
       <Modal
         visible={modalVisible}
         animationType="slide"
@@ -161,15 +242,17 @@ export default function CategoriesScreen({ navigation }) {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Categorie nouă</Text>
+            <Text style={styles.modalTitle}>
+              {editingCategory ? `Editează "${editingCategory.name}"` : 'Categorie nouă'}
+            </Text>
 
             <Text style={styles.label}>Nume</Text>
             <TextInput
               style={[styles.input, nameError && styles.inputError]}
               placeholder="ex: Proiecte..."
-              value={newName}
+              value={form.name}
               maxLength={80}
-              onChangeText={(t) => { setNewName(t); setNameError(''); }}
+              onChangeText={(t) => { setForm((f) => ({ ...f, name: t })); setNameError(''); }}
               accessibilityLabel="Nume categorie"
             />
             {nameError ? <Text style={styles.errorText}>{nameError}</Text> : null}
@@ -179,10 +262,10 @@ export default function CategoriesScreen({ navigation }) {
               {COLORS.map((c) => (
                 <TouchableOpacity
                   key={c}
-                  style={[styles.colorDot, { backgroundColor: c }, selectedColor === c && styles.colorSelected]}
-                  onPress={() => setSelectedColor(c)}
+                  style={[styles.colorDot, { backgroundColor: c }, form.color === c && styles.colorSelected]}
+                  onPress={() => setForm((f) => ({ ...f, color: c }))}
                   accessibilityRole="radio"
-                  accessibilityState={{ checked: selectedColor === c }}
+                  accessibilityState={{ checked: form.color === c }}
                 />
               ))}
             </View>
@@ -192,8 +275,8 @@ export default function CategoriesScreen({ navigation }) {
               {ICONS.map((icon) => (
                 <TouchableOpacity
                   key={icon}
-                  style={[styles.iconBtn, selectedIcon === icon && styles.iconSelected]}
-                  onPress={() => setSelectedIcon(icon)}
+                  style={[styles.iconBtn, form.icon === icon && styles.iconSelected]}
+                  onPress={() => setForm((f) => ({ ...f, icon }))}
                   accessibilityRole="radio"
                 >
                   <Text style={styles.iconBtnText}>{icon}</Text>
@@ -202,22 +285,22 @@ export default function CategoriesScreen({ navigation }) {
             </View>
 
             {/* Preview */}
-            <View style={[styles.preview, { borderColor: selectedColor }]}>
-              <Text style={styles.previewIcon}>{selectedIcon}</Text>
-              <Text style={[styles.previewName, { color: selectedColor }]}>
-                {newName || 'Previzualizare'}
+            <View style={[styles.preview, { borderColor: form.color }]}>
+              <Text style={styles.previewIcon}>{form.icon}</Text>
+              <Text style={[styles.previewName, { color: form.color }]}>
+                {form.name || 'Previzualizare'}
               </Text>
             </View>
 
             <View style={styles.modalActions}>
               <TouchableOpacity
                 style={styles.cancelModalBtn}
-                onPress={() => { setModalVisible(false); setNameError(''); }}
+                onPress={() => { setModalVisible(false); setNameError(''); setEditingCategory(null); }}
               >
                 <Text style={styles.cancelModalText}>Anulează</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.saveModalBtn} onPress={handleAddCategory}>
-                <Text style={styles.saveModalText}>Adaugă</Text>
+              <TouchableOpacity style={styles.saveModalBtn} onPress={handleSave}>
+                <Text style={styles.saveModalText}>{editingCategory ? 'Salvează' : 'Adaugă'}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -269,9 +352,30 @@ const styles = StyleSheet.create({
     backgroundColor: '#E8EDFF',
     borderRadius: 2,
     overflow: 'hidden',
+    marginBottom: 8,
   },
   progressFill: { height: '100%', borderRadius: 2 },
-  catHeader: { paddingTop: 56, paddingBottom: 24, paddingHorizontal: 20, borderBottomLeftRadius: 24, borderBottomRightRadius: 24 },
+  cardActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 6,
+    marginTop: 4,
+  },
+  editBtn: {
+    padding: 4,
+  },
+  editBtnText: { fontSize: 14 },
+  deleteBtn: {
+    padding: 4,
+  },
+  deleteBtnText: { fontSize: 14 },
+  catHeader: {
+    paddingTop: 56,
+    paddingBottom: 24,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+  },
   backBtn: { marginBottom: 12 },
   backBtnText: { color: 'rgba(255,255,255,0.8)', fontSize: 15, fontWeight: '600' },
   catHeaderIcon: { fontSize: 40, marginBottom: 8 },
@@ -330,8 +434,21 @@ const styles = StyleSheet.create({
   previewIcon: { fontSize: 24 },
   previewName: { fontSize: 16, fontWeight: '700' },
   modalActions: { flexDirection: 'row', gap: 12 },
-  cancelModalBtn: { flex: 1, paddingVertical: 14, alignItems: 'center', borderRadius: 12, borderWidth: 1.5, borderColor: '#D0D8F0' },
+  cancelModalBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#D0D8F0',
+  },
   cancelModalText: { color: '#7B8AB8', fontWeight: '600', fontSize: 15 },
-  saveModalBtn: { flex: 1, paddingVertical: 14, alignItems: 'center', borderRadius: 12, backgroundColor: '#4A6CF7' },
+  saveModalBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    alignItems: 'center',
+    borderRadius: 12,
+    backgroundColor: '#4A6CF7',
+  },
   saveModalText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 });

@@ -1,23 +1,28 @@
-import 'react-native-url-polyfill/auto';
 import { createClient } from '@supabase/supabase-js';
 import * as SecureStore from 'expo-secure-store';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
-const DEMO_SESSION_KEY = '@TaskManager:demo-session';
+const DEMO_SESSION_KEY = 'TaskManager_demo_session';
 export const DEMO_USER_ID = 'demo-device';
+
+// SecureStore acceptă doar [a-zA-Z0-9._-] — sanitizăm orice altă cheie
+function sanitizeKey(key) {
+  return key.replace(/[^a-zA-Z0-9._-]/g, '_');
+}
 
 const secureStorage = {
   async getItem(key) {
-    const count = await SecureStore.getItemAsync(`${key}:chunk-count`);
-    if (count === null) return SecureStore.getItemAsync(key);
+    const safeKey = sanitizeKey(key);
+    const count = await SecureStore.getItemAsync(`${safeKey}_chunk_count`);
+    if (count === null) return SecureStore.getItemAsync(safeKey);
     const chunkCount = Number(count);
     if (!Number.isInteger(chunkCount) || chunkCount < 0 || chunkCount > 100) {
       throw new Error('Sesiunea securizată are un format invalid. Autentifică-te din nou.');
     }
     const chunks = await Promise.all(
       Array.from({ length: chunkCount }, (_, index) =>
-        SecureStore.getItemAsync(`${key}:chunk:${index}`)
+        SecureStore.getItemAsync(`${safeKey}_chunk_${index}`)
       )
     );
     if (chunks.some((chunk) => chunk === null)) {
@@ -26,32 +31,34 @@ const secureStorage = {
     return chunks.join('');
   },
   async setItem(key, value) {
+    const safeKey = sanitizeKey(key);
     const codePoints = Array.from(value);
     const chunks = [];
     for (let index = 0; index < codePoints.length; index += 350) {
       chunks.push(codePoints.slice(index, index + 350).join(''));
     }
-    const previousCount = Number(await SecureStore.getItemAsync(`${key}:chunk-count`) || 0);
+    const previousCount = Number(await SecureStore.getItemAsync(`${safeKey}_chunk_count`) || 0);
     await Promise.all(
       chunks.map((chunk, index) =>
-        SecureStore.setItemAsync(`${key}:chunk:${index}`, chunk)
+        SecureStore.setItemAsync(`${safeKey}_chunk_${index}`, chunk)
       )
     );
-    await SecureStore.setItemAsync(`${key}:chunk-count`, String(chunks.length));
+    await SecureStore.setItemAsync(`${safeKey}_chunk_count`, String(chunks.length));
     await Promise.all(
       Array.from({ length: Math.max(0, previousCount - chunks.length) }, (_, index) =>
-        SecureStore.deleteItemAsync(`${key}:chunk:${chunks.length + index}`)
+        SecureStore.deleteItemAsync(`${safeKey}_chunk_${chunks.length + index}`)
       )
     );
-    await SecureStore.deleteItemAsync(key);
+    await SecureStore.deleteItemAsync(safeKey);
   },
   async removeItem(key) {
-    const count = Number(await SecureStore.getItemAsync(`${key}:chunk-count`) || 0);
+    const safeKey = sanitizeKey(key);
+    const count = Number(await SecureStore.getItemAsync(`${safeKey}_chunk_count`) || 0);
     await Promise.all([
-      SecureStore.deleteItemAsync(key),
-      SecureStore.deleteItemAsync(`${key}:chunk-count`),
+      SecureStore.deleteItemAsync(safeKey),
+      SecureStore.deleteItemAsync(`${safeKey}_chunk_count`),
       ...Array.from({ length: count }, (_, index) =>
-        SecureStore.deleteItemAsync(`${key}:chunk:${index}`)
+        SecureStore.deleteItemAsync(`${safeKey}_chunk_${index}`)
       ),
     ]);
   },

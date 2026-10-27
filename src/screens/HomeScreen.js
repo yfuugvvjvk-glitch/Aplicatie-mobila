@@ -81,7 +81,7 @@ export default function HomeScreen({ navigation }) {
         </View>
         <TouchableOpacity
           style={styles.profileBtn}
-          onPress={() => navigation.navigate('Profile')}
+          onPress={() => navigation.navigate('ProfileTab')}
           accessibilityLabel="Profilul meu"
           accessibilityRole="button"
         >

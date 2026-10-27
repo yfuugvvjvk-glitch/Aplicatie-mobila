@@ -22,6 +22,8 @@ const ACTIONS = {
   UPDATE_TASK: 'UPDATE_TASK',
   DELETE_TASK: 'DELETE_TASK',
   ADD_CATEGORY: 'ADD_CATEGORY',
+  UPDATE_CATEGORY: 'UPDATE_CATEGORY',
+  DELETE_CATEGORY: 'DELETE_CATEGORY',
   SET_USER: 'SET_USER',
   LOGOUT: 'LOGOUT',
   SET_LOADING: 'SET_LOADING',
@@ -55,6 +57,22 @@ function taskReducer(state, action) {
       return { ...state, tasks: state.tasks.filter((task) => task.id !== action.payload) };
     case ACTIONS.ADD_CATEGORY:
       return { ...state, categories: [...state.categories, action.payload] };
+    case ACTIONS.UPDATE_CATEGORY:
+      return {
+        ...state,
+        categories: state.categories.map((cat) =>
+          cat.id === action.payload.id ? action.payload : cat
+        ),
+      };
+    case ACTIONS.DELETE_CATEGORY:
+      return {
+        ...state,
+        categories: state.categories.filter((cat) => cat.id !== action.payload),
+        // Dezasociază task-urile din categoria ștearsă
+        tasks: state.tasks.map((t) =>
+          t.categoryId === action.payload ? { ...t, categoryId: null } : t
+        ),
+      };
     case ACTIONS.SET_USER:
       return { ...state, user: action.payload };
     case ACTIONS.LOGOUT:
@@ -248,6 +266,26 @@ export const TaskProvider = ({ children }) => {
     payload: category,
   });
 
+  const updateCategory = (category) => mutate('category', 'upsert', category, {
+    type: ACTIONS.UPDATE_CATEGORY,
+    payload: category,
+  });
+
+  const deleteCategory = async (id) => {
+    // Dezasociază task-urile din categoria ștearsă (persistat local + cloud)
+    const catTasks = state.tasks.filter((t) => t.categoryId === id);
+    for (const t of catTasks) {
+      await mutate('task', 'upsert', { ...t, categoryId: null }, {
+        type: ACTIONS.UPDATE_TASK,
+        payload: { ...t, categoryId: null },
+      });
+    }
+    return mutate('category', 'delete', { id }, {
+      type: ACTIONS.DELETE_CATEGORY,
+      payload: id,
+    });
+  };
+
   const login = async ({ email, password }) => {
     const client = requireSupabase();
     const { data, error } = await client.auth.signInWithPassword({
@@ -329,9 +367,14 @@ export const TaskProvider = ({ children }) => {
     const total = state.tasks.length;
     const completed = state.tasks.filter((task) => task.completed).length;
     const active = total - completed;
-    const overdue = state.tasks.filter(
-      (task) => !task.completed && task.dueDate && new Date(task.dueDate) < new Date()
-    ).length;
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const overdue = state.tasks.filter((task) => {
+      if (!task.dueDate || task.completed) return false;
+      const due = new Date(task.dueDate);
+      due.setHours(0, 0, 0, 0);
+      return due < now;
+    }).length;
     return { total, completed, active, overdue };
   };
 
@@ -344,6 +387,8 @@ export const TaskProvider = ({ children }) => {
         deleteTask,
         toggleTask,
         addCategory,
+        updateCategory,
+        deleteCategory,
         login,
         continueAsDemo,
         register,

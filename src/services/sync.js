@@ -93,8 +93,13 @@ export async function syncUserData(userId) {
     }
   }
 
-  const changes = (await getPendingChanges(userId))
-    .sort((left, right) => Number(right.entity === 'category') - Number(left.entity === 'category'));
+  const changes = (await getPendingChanges(userId)).sort((left, right) => {
+    const priority = (change) => {
+      if (change.entity !== 'category') return 1;
+      return change.operation === 'delete' ? 2 : 0;
+    };
+    return priority(left) - priority(right);
+  });
   for (const change of changes) {
     await applyChange(client, userId, change);
     await removePendingChange(userId, change.id);
