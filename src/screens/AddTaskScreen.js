@@ -19,6 +19,7 @@ import DateTimePicker from "@react-native-community/datetimepicker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { generateId } from "../utils/uuid";
 import { useTask } from "../context/TaskContext";
+import taskFormSchema from "../config/taskFormSchema.json";
 
 const PRIORITIES = [
   { key: "low", label: "Scăzută", color: "#27AE60", icon: "🟢" },
@@ -50,6 +51,9 @@ export default function AddTaskScreen({ navigation, route }) {
   const [errors, setErrors] = useState({});
   const [saveError, setSaveError] = useState("");
   const [saving, setSaving] = useState(false);
+  const configuredFields = [...taskFormSchema.fields]
+    .filter((field) => field.visible)
+    .sort((left, right) => left.order - right.order);
 
   const formatDateDisplay = (date) => {
     if (!date || !(date instanceof Date) || isNaN(date.getTime())) return null;
@@ -62,7 +66,8 @@ export default function AddTaskScreen({ navigation, route }) {
 
   const validate = () => {
     const newErrors = {};
-    if (title.trim().length < 2) {
+    const titleField = taskFormSchema.fields.find((field) => field.id === "title");
+    if (titleField?.required && title.trim().length < 2) {
       newErrors.title = "Titlul trebuie să aibă minim 2 caractere.";
     }
     setErrors(newErrors);
@@ -117,6 +122,186 @@ export default function AddTaskScreen({ navigation, route }) {
     setShowDatePicker(false);
   };
 
+  const renderField = (field) => {
+    switch (field.id) {
+      case "title":
+        return (
+          <View style={styles.field}>
+            <Text style={styles.label}>{field.label}{field.required ? " *" : ""}</Text>
+            <TextInput
+              style={[styles.input, errors.title && styles.inputError]}
+              placeholder="ex: Pregătire prezentare..."
+              value={title}
+              onChangeText={(value) => { setTitle(value); setSaveError(""); }}
+              maxLength={100}
+              accessibilityLabel={field.label}
+            />
+            {errors.title ? <Text style={styles.errorText}>{errors.title}</Text> : null}
+          </View>
+        );
+      case "description":
+        return (
+          <View style={styles.field}>
+            <Text style={styles.label}>{field.label}</Text>
+            <TextInput
+              style={[styles.input, styles.textArea]}
+              placeholder="Adaugă detalii despre task..."
+              value={description}
+              onChangeText={setDescription}
+              multiline
+              numberOfLines={4}
+              maxLength={500}
+              accessibilityLabel={field.label}
+            />
+          </View>
+        );
+      case "priority":
+        return (
+          <View style={styles.field}>
+            <Text style={styles.label}>{field.label}</Text>
+            <View style={styles.priorityRow}>
+              {PRIORITIES.map((item) => (
+                <TouchableOpacity
+                  key={item.key}
+                  style={[
+                    styles.priorityChip,
+                    priority === item.key && {
+                      backgroundColor: item.color,
+                      borderColor: item.color,
+                    },
+                  ]}
+                  onPress={() => setPriority(item.key)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: priority === item.key }}
+                >
+                  <Text style={styles.priorityIcon}>{item.icon}</Text>
+                  <Text
+                    style={[
+                      styles.priorityLabel,
+                      priority === item.key && { color: "#fff" },
+                    ]}
+                  >
+                    {item.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        );
+      case "category":
+        return (
+          <View style={styles.field}>
+            <Text style={styles.label}>{field.label}</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={styles.categoryRow}>
+                <TouchableOpacity
+                  style={[styles.categoryChip, !categoryId && styles.categoryActive]}
+                  onPress={() => setCategoryId(null)}
+                  accessibilityRole="button"
+                >
+                  <Text style={[styles.categoryText, !categoryId && styles.categoryTextActive]}>
+                    Niciuna
+                  </Text>
+                </TouchableOpacity>
+                {categories.map((category) => (
+                  <TouchableOpacity
+                    key={category.id}
+                    style={[
+                      styles.categoryChip,
+                      categoryId === category.id && {
+                        backgroundColor: category.color,
+                        borderColor: category.color,
+                      },
+                    ]}
+                    onPress={() => setCategoryId(category.id)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: categoryId === category.id }}
+                  >
+                    <Text style={styles.categoryIcon}>{category.icon}</Text>
+                    <Text
+                      style={[
+                        styles.categoryText,
+                        categoryId === category.id && styles.categoryTextActive,
+                      ]}
+                    >
+                      {category.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </ScrollView>
+          </View>
+        );
+      case "dueDate":
+        return (
+          <View style={styles.field}>
+            <Text style={styles.label}>{field.label}</Text>
+            <View style={styles.dateRow}>
+              <TouchableOpacity
+                style={styles.dateBtn}
+                onPress={() => setShowDatePicker(true)}
+                accessibilityRole="button"
+                accessibilityLabel="Alege data scadentă"
+              >
+                <Text style={styles.dateIcon}>📅</Text>
+                <Text style={dueDate ? styles.dateBtnText : styles.datePlaceholder}>
+                  {dueDate ? formatDateDisplay(dueDate) : "Alege o dată..."}
+                </Text>
+              </TouchableOpacity>
+              {dueDate && (
+                <TouchableOpacity
+                  style={styles.dateClearBtn}
+                  onPress={() => setDueDate(null)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Șterge data scadentă"
+                >
+                  <Text style={styles.dateClearText}>✕</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            {showDatePicker && (
+              <DateTimePicker
+                value={dueDate || new Date()}
+                mode="date"
+                display={Platform.OS === "ios" ? "inline" : "default"}
+                onValueChange={onDateChange}
+                onDismiss={onDateDismiss}
+                minimumDate={new Date()}
+                locale="ro-RO"
+                accessibilityLabel="Calendar alegere dată scadentă"
+              />
+            )}
+            {showDatePicker && Platform.OS === "ios" && (
+              <TouchableOpacity
+                style={styles.dateConfirmBtn}
+                onPress={() => setShowDatePicker(false)}
+              >
+                <Text style={styles.dateConfirmText}>Confirmă data</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        );
+      case "reminder":
+        return (
+          <View style={styles.reminderRow}>
+            <View>
+              <Text style={styles.label}>{field.label}</Text>
+              <Text style={styles.reminderSub}>Marchează task-ul pentru urmărire</Text>
+            </View>
+            <Switch
+              value={hasReminder}
+              onValueChange={setHasReminder}
+              trackColor={{ false: "#D0D8F0", true: "#4A6CF7" }}
+              thumbColor={hasReminder ? "#fff" : "#f4f3f4"}
+              accessibilityLabel={field.label}
+            />
+          </View>
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
@@ -131,178 +316,9 @@ export default function AddTaskScreen({ navigation, route }) {
           {isEdit ? "Editare task" : "Task nou"}
         </Text>
 
-        {/* Titlu */}
-        <View style={styles.field}>
-          <Text style={styles.label}>Titlu *</Text>
-          <TextInput
-            style={[styles.input, errors.title && styles.inputError]}
-            placeholder="ex: Pregătire prezentare..."
-            value={title}
-            onChangeText={(value) => { setTitle(value); setSaveError(""); }}
-            maxLength={100}
-            accessibilityLabel="Titlu task"
-          />
-          {errors.title ? (
-            <Text style={styles.errorText}>{errors.title}</Text>
-          ) : null}
-        </View>
-
-        {/* Descriere */}
-        <View style={styles.field}>
-          <Text style={styles.label}>Descriere</Text>
-          <TextInput
-            style={[styles.input, styles.textArea]}
-            placeholder="Adaugă detalii despre task..."
-            value={description}
-            onChangeText={setDescription}
-            multiline
-            numberOfLines={4}
-            maxLength={500}
-            accessibilityLabel="Descriere task"
-          />
-        </View>
-
-        {/* Prioritate */}
-        <View style={styles.field}>
-          <Text style={styles.label}>Prioritate</Text>
-          <View style={styles.priorityRow}>
-            {PRIORITIES.map((p) => (
-              <TouchableOpacity
-                key={p.key}
-                style={[
-                  styles.priorityChip,
-                  priority === p.key && {
-                    backgroundColor: p.color,
-                    borderColor: p.color,
-                  },
-                ]}
-                onPress={() => setPriority(p.key)}
-                accessibilityRole="radio"
-                accessibilityState={{ checked: priority === p.key }}
-              >
-                <Text style={styles.priorityIcon}>{p.icon}</Text>
-                <Text
-                  style={[
-                    styles.priorityLabel,
-                    priority === p.key && { color: "#fff" },
-                  ]}
-                >
-                  {p.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* Categorie */}
-        <View style={styles.field}>
-          <Text style={styles.label}>Categorie</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.categoryRow}>
-              <TouchableOpacity
-                style={[styles.categoryChip, !categoryId && styles.categoryActive]}
-                onPress={() => setCategoryId(null)}
-                accessibilityRole="button"
-              >
-                <Text style={[styles.categoryText, !categoryId && styles.categoryTextActive]}>
-                  Niciuna
-                </Text>
-              </TouchableOpacity>
-              {categories.map((cat) => (
-                <TouchableOpacity
-                  key={cat.id}
-                  style={[
-                    styles.categoryChip,
-                    categoryId === cat.id && {
-                      backgroundColor: cat.color,
-                      borderColor: cat.color,
-                    },
-                  ]}
-                  onPress={() => setCategoryId(cat.id)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: categoryId === cat.id }}
-                >
-                  <Text style={styles.categoryIcon}>{cat.icon}</Text>
-                  <Text
-                    style={[
-                      styles.categoryText,
-                      categoryId === cat.id && styles.categoryTextActive,
-                    ]}
-                  >
-                    {cat.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          </ScrollView>
-        </View>
-
-        {/* Data scadentă — date picker nativ */}
-        <View style={styles.field}>
-          <Text style={styles.label}>Data scadentă (opțional)</Text>
-          <View style={styles.dateRow}>
-            <TouchableOpacity
-              style={styles.dateBtn}
-              onPress={() => setShowDatePicker(true)}
-              accessibilityRole="button"
-              accessibilityLabel="Alege data scadentă"
-            >
-              <Text style={styles.dateIcon}>📅</Text>
-              <Text style={dueDate ? styles.dateBtnText : styles.datePlaceholder}>
-                {dueDate ? formatDateDisplay(dueDate) : "Alege o dată..."}
-              </Text>
-            </TouchableOpacity>
-            {dueDate && (
-              <TouchableOpacity
-                style={styles.dateClearBtn}
-                onPress={() => setDueDate(null)}
-                accessibilityRole="button"
-                accessibilityLabel="Șterge data scadentă"
-              >
-                <Text style={styles.dateClearText}>✕</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-          {/* Picker nativ — pe iOS apare inline, pe Android ca dialog */}
-          {showDatePicker && (
-            <DateTimePicker
-              value={dueDate || new Date()}
-              mode="date"
-              display={Platform.OS === "ios" ? "inline" : "default"}
-              onValueChange={onDateChange}
-              onDismiss={onDateDismiss}
-              minimumDate={new Date()}
-              locale="ro-RO"
-              accessibilityLabel="Calendar alegere dată scadentă"
-            />
-          )}
-          {/* Pe iOS adăugăm buton de confirmare explicit */}
-          {showDatePicker && Platform.OS === "ios" && (
-            <TouchableOpacity
-              style={styles.dateConfirmBtn}
-              onPress={() => setShowDatePicker(false)}
-            >
-              <Text style={styles.dateConfirmText}>Confirmă data</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* Reminder */}
-        <View style={styles.reminderRow}>
-          <View>
-            <Text style={styles.label}>Activează reminder</Text>
-            <Text style={styles.reminderSub}>
-              Marchează task-ul pentru urmărire
-            </Text>
-          </View>
-          <Switch
-            value={hasReminder}
-            onValueChange={setHasReminder}
-            trackColor={{ false: "#D0D8F0", true: "#4A6CF7" }}
-            thumbColor={hasReminder ? "#fff" : "#f4f3f4"}
-            accessibilityLabel="Activează reminder"
-          />
-        </View>
+        {configuredFields.map((field) => (
+          <React.Fragment key={field.id}>{renderField(field)}</React.Fragment>
+        ))}
 
         {/* Buton salvare */}
         {saveError ? <Text style={styles.saveError}>{saveError}</Text> : null}

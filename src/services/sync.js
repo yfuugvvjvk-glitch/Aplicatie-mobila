@@ -160,6 +160,19 @@ export async function saveOfflineChange(userId, entity, operation, record) {
   });
 }
 
+export async function getCloudTaskSummary() {
+  const { data, error } = await requireSupabase().functions.invoke('task-summary', {
+    method: 'GET',
+  });
+  if (error) throw error;
+
+  const counters = ['total', 'completed', 'active', 'overdue', 'highPriorityActive', 'categories'];
+  if (!data || counters.some((key) => !Number.isInteger(data[key]) || data[key] < 0)) {
+    throw new Error('Serviciul cloud a returnat un rezumat cu format invalid.');
+  }
+  return data;
+}
+
 export function getSyncErrorMessage(error) {
   return error?.message || 'Sincronizarea cu Supabase a eșuat.';
 }

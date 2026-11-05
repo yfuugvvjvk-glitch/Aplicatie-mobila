@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "screen": "task-form",
+  "fields": [
+    { "id": "title", "label": "Titlu", "visible": true, "order": 1, "required": true },
+    { "id": "description", "label": "Descriere", "visible": true, "order": 2, "required": false },
+    { "id": "priority", "label": "Prioritate", "visible": true, "order": 3, "required": false },
+    { "id": "category", "label": "Categorie", "visible": true, "order": 4, "required": false },
+    { "id": "dueDate", "label": "Data scadentă (opțional)", "visible": true, "order": 5, "required": false },
+    { "id": "reminder", "label": "Activează reminder", "visible": true, "order": 6, "required": false }
+  ]
+}

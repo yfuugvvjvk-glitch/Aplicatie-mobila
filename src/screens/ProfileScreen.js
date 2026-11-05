@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTask } from '../context/TaskContext';
+import { getCloudTaskSummary } from '../services/sync';
 
 export default function ProfileScreen({ navigation }) {
   const {
@@ -34,7 +35,23 @@ export default function ProfileScreen({ navigation }) {
   const [profileName, setProfileName] = useState(user?.name || '');
   const [savingProfile, setSavingProfile] = useState(false);
   const [profileSaveError, setProfileSaveError] = useState('');
+  const [cloudSummary, setCloudSummary] = useState(null);
+  const [cloudSummaryLoading, setCloudSummaryLoading] = useState(false);
+  const [cloudSummaryError, setCloudSummaryError] = useState('');
   const stats = getStats();
+
+  const loadCloudSummary = async () => {
+    if (cloudSummaryLoading) return;
+    setCloudSummaryLoading(true);
+    setCloudSummaryError('');
+    try {
+      setCloudSummary(await getCloudTaskSummary());
+    } catch (error) {
+      setCloudSummaryError(error.message || 'Rezumatul cloud nu este disponibil.');
+    } finally {
+      setCloudSummaryLoading(false);
+    }
+  };
 
   const openProfileEditor = () => {
     setProfileName(user?.name || '');
@@ -155,6 +172,40 @@ export default function ProfileScreen({ navigation }) {
             </TouchableOpacity>
           )}
         </View>
+
+        {!user?.isDemo && (
+          <View style={styles.cloudSummaryCard}>
+            <View style={styles.cloudSummaryHeader}>
+              <View style={styles.cloudSummaryCopy}>
+                <Text style={styles.cloudSummaryTitle}>Rezumat calculat în cloud</Text>
+                <Text style={styles.syncSubtitle}>
+                  Edge Function autentificată, cu acces la datele utilizatorului prin RLS.
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.syncButton}
+                onPress={loadCloudSummary}
+                disabled={cloudSummaryLoading}
+                accessibilityRole="button"
+                accessibilityLabel="Încarcă rezumatul de sarcini din cloud"
+              >
+                <Text style={styles.syncButtonText}>
+                  {cloudSummaryLoading ? 'Se încarcă...' : 'Încarcă'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+            {cloudSummary ? (
+              <Text style={styles.cloudSummaryResult}>
+                {cloudSummary.total} total · {cloudSummary.completed} finalizate ·{' '}
+                {cloudSummary.overdue} depășite · {cloudSummary.highPriorityActive} urgente ·{' '}
+                {cloudSummary.categories} categorii
+              </Text>
+            ) : null}
+            {cloudSummaryError ? (
+              <Text style={styles.cloudSummaryError}>{cloudSummaryError}</Text>
+            ) : null}
+          </View>
+        )}
 
       {/* Rată de finalizare */}
       <View style={styles.rateCard}>
@@ -348,6 +399,18 @@ const styles = StyleSheet.create({
   syncSubtitle: { color: '#7B8AB8', fontSize: 12, marginTop: 4, lineHeight: 17 },
   syncButton: { paddingHorizontal: 12, paddingVertical: 9, backgroundColor: '#E8EDFF', borderRadius: 9 },
   syncButtonText: { color: '#4A6CF7', fontSize: 12, fontWeight: '700' },
+  cloudSummaryCard: {
+    marginHorizontal: 20,
+    marginTop: 12,
+    padding: 16,
+    backgroundColor: '#fff',
+    borderRadius: 14,
+  },
+  cloudSummaryHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  cloudSummaryCopy: { flex: 1 },
+  cloudSummaryTitle: { color: '#2C3E6B', fontSize: 14, fontWeight: '700' },
+  cloudSummaryResult: { color: '#2C3E6B', fontSize: 12, lineHeight: 18, marginTop: 10 },
+  cloudSummaryError: { color: '#B42318', fontSize: 12, lineHeight: 17, marginTop: 10 },
   rateCard: {
     margin: 20,
     backgroundColor: '#fff',

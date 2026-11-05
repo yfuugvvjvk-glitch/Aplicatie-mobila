@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="ro">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="color-scheme" content="light">
+    <title>TaskManager — editor vizual al formularului</title>
+    <style>
+      :root {
+        font-family: Inter, "Segoe UI", Arial, sans-serif;
+        color: #24345b;
+        background: #f0f4ff;
+        font-synthesis: none;
+      }
+
+      * { box-sizing: border-box; }
+
+      body { margin: 0; min-height: 100vh; }
+
+      header {
+        padding: 28px max(22px, calc((100vw - 1120px) / 2));
+        color: white;
+        background: linear-gradient(115deg, #263967, #4a6cf7);
+      }
+
+      header h1 { margin: 0 0 8px; font-size: clamp(24px, 4vw, 34px); }
+      header p { margin: 0; color: #e7ecff; line-height: 1.5; }
+
+      main {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(280px, 0.8fr);
+        gap: 20px;
+        width: min(1120px, calc(100% - 32px));
+        margin: 24px auto;
+      }
+
+      .panel {
+        padding: 20px;
+        border: 1px solid #dfe6f5;
+        border-radius: 18px;
+        background: white;
+        box-shadow: 0 8px 26px #26396712;
+      }
+
+      h2 { margin: 0 0 8px; font-size: 19px; }
+      .hint { margin: 0 0 18px; color: #657393; font-size: 14px; line-height: 1.5; }
+
+      #fields { display: grid; gap: 10px; }
+
+      .field {
+        display: grid;
+        grid-template-columns: 38px minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 10px;
+        padding: 12px;
+        border: 1px solid #dfe6f5;
+        border-radius: 12px;
+        background: white;
+      }
+
+      .field[aria-grabbed="true"] { opacity: 0.45; }
+      .field.drag-over { border-color: #4a6cf7; background: #f2f5ff; }
+      .field.hidden-field { background: #f7f8fb; }
+
+      .drag {
+        display: grid;
+        width: 34px;
+        height: 38px;
+        place-items: center;
+        border: 0;
+        border-radius: 8px;
+        color: #637294;
+        background: #eef2ff;
+        cursor: grab;
+        font-size: 20px;
+      }
+
+      .field-main { min-width: 0; }
+      .field-title { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; font-weight: 700; }
+      .field-key { color: #8290ab; font-size: 12px; font-weight: 500; }
+      .field input[type="text"] {
+        width: 100%;
+        padding: 8px 10px;
+        border: 1px solid #d8dfef;
+        border-radius: 8px;
+        color: #24345b;
+        background: #fff;
+        font: inherit;
+        font-size: 14px;
+      }
+
+      .field-actions { display: flex; align-items: center; gap: 8px; }
+      .move-controls { display: flex; gap: 4px; }
+      .move-controls button {
+        width: 30px;
+        height: 34px;
+        border: 0;
+        border-radius: 7px;
+        color: #34446a;
+        background: #e9eefb;
+        cursor: pointer;
+        font: inherit;
+        font-weight: 700;
+      }
+      .visibility { display: flex; align-items: center; gap: 6px; color: #52617e; font-size: 12px; white-space: nowrap; }
+      .visibility input { width: 18px; height: 18px; accent-color: #4a6cf7; }
+      .required { color: #c03d38; font-size: 11px; font-weight: 700; }
+
+      .preview {
+        display: grid;
+        gap: 14px;
+        max-width: 360px;
+        margin: 12px auto;
+        padding: 20px;
+        border: 8px solid #263967;
+        border-radius: 28px;
+        background: #f7f9ff;
+      }
+
+      .preview-title { margin: 0 0 2px; font-weight: 800; font-size: 19px; }
+      .preview-field { display: grid; gap: 6px; }
+      .preview-field span { font-size: 13px; font-weight: 600; color: #5a6a9a; }
+      .mock-input {
+        min-height: 38px;
+        padding: 10px;
+        border: 1px solid #d0d8f0;
+        border-radius: 9px;
+        color: #8a97b1;
+        background: white;
+        font-size: 13px;
+      }
+      .mock-input.multiline { min-height: 70px; }
+      .mock-button {
+        padding: 12px;
+        border-radius: 10px;
+        color: white;
+        background: #4a6cf7;
+        text-align: center;
+        font-weight: 700;
+      }
+
+      .actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 16px; }
+      button.action, label.action {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 42px;
+        padding: 10px 13px;
+        border: 0;
+        border-radius: 10px;
+        color: white;
+        background: #4a6cf7;
+        cursor: pointer;
+        font: inherit;
+        font-size: 13px;
+        font-weight: 700;
+      }
+      button.secondary, label.secondary { color: #34446a; background: #e9eefb; }
+      button.action:focus-visible, label.action:focus-visible, input:focus-visible {
+        outline: 3px solid #f1b84b;
+        outline-offset: 2px;
+      }
+      input[type="file"] { display: none; }
+      #status { min-height: 20px; margin: 12px 0 0; color: #26734f; font-size: 13px; }
+      .notice { margin: 12px 0 0; color: #75819b; font-size: 12px; line-height: 1.5; }
+      code { color: #34446a; }
+
+      @media (max-width: 760px) {
+        main { grid-template-columns: 1fr; }
+        header { padding: 22px 18px; }
+        .panel { padding: 16px; }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>TaskManager · editor vizual</h1>
+      <p>Configurează formularul de sarcini prin tragere, reordonare și editarea etichetelor.</p>
+    </header>
+    <main>
+      <section class="panel" aria-labelledby="editor-heading">
+        <h2 id="editor-heading">Câmpurile formularului</h2>
+        <p class="hint">Trage câmpurile pentru a le reordona. Poți schimba etichetele și vizibilitatea. Titlul rămâne obligatoriu.</p>
+        <div id="fields" aria-live="polite"></div>
+        <div class="actions">
+          <button class="action" id="download" type="button">Descarcă schema JSON</button>
+          <button class="action secondary" id="copy" type="button">Copiază JSON</button>
+          <label class="action secondary" for="upload">Încarcă schemă</label>
+          <input id="upload" type="file" accept="application/json,.json">
+          <button class="action secondary" id="reset" type="button">Resetează</button>
+        </div>
+        <p id="status" role="status"></p>
+        <p class="notice">După export, înlocuiește <code>src/config/taskFormSchema.json</code> cu fișierul descărcat și repornește Expo. Exportul schimbă ordinea, etichetele și vizibilitatea câmpurilor existente; nu generează cod nou sau funcții native.</p>
+      </section>
+      <section class="panel" aria-labelledby="preview-heading">
+        <h2 id="preview-heading">Previzualizare</h2>
+        <p class="hint">Previzualizarea arată structura și etichetele; controalele native reale rămân în aplicația mobilă.</p>
+        <div class="preview" id="preview"></div>
+      </section>
+    </main>
+    <script>
+      (() => {
+        const defaults = {
+          version: 1,
+          screen: "task-form",
+          fields: [
+            { id: "title", label: "Titlu", visible: true, order: 1, required: true },
+            { id: "description", label: "Descriere", visible: true, order: 2, required: false },
+            { id: "priority", label: "Prioritate", visible: true, order: 3, required: false },
+            { id: "category", label: "Categorie", visible: true, order: 4, required: false },
+            { id: "dueDate", label: "Data scadentă (opțional)", visible: true, order: 5, required: false },
+            { id: "reminder", label: "Activează reminder", visible: true, order: 6, required: false }
+          ]
+        };
+        const knownIds = new Set(defaults.fields.map((field) => field.id));
+        const labels = {
+          title: "Titlu",
+          description: "Descriere",
+          priority: "Prioritate",
+          category: "Categorie",
+          dueDate: "Data scadentă",
+          reminder: "Reminder"
+        };
+        const controls = {
+          title: "Răspuns scurt",
+          description: "Descrierea sarcinii",
+          priority: "Scăzută  ·  Medie  ·  Ridicată",
+          category: "Alege o categorie",
+          dueDate: "Alege o dată",
+          reminder: "○ Activare reminder"
+        };
+        let schema = structuredClone(defaults);
+        let draggedId = null;
+        const fieldsElement = document.querySelector("#fields");
+        const previewElement = document.querySelector("#preview");
+        const statusElement = document.querySelector("#status");
+
+        const orderedFields = () => [...schema.fields].sort((a, b) => a.order - b.order);
+
+        function render() {
+          fieldsElement.replaceChildren();
+          previewElement.replaceChildren();
+          const heading = document.createElement("p");
+          heading.className = "preview-title";
+          heading.textContent = "Task nou";
+          previewElement.append(heading);
+
+          for (const field of orderedFields()) {
+            const row = document.createElement("div");
+            row.className = `field${field.visible ? "" : " hidden-field"}`;
+            row.draggable = true;
+            row.dataset.id = field.id;
+            row.setAttribute("aria-grabbed", "false");
+
+            const grip = document.createElement("button");
+            grip.className = "drag";
+            grip.type = "button";
+            grip.title = "Trage pentru reordonare";
+            grip.setAttribute("aria-label", `Reordonează câmpul ${field.label}`);
+            grip.textContent = "⠿";
+
+            const main = document.createElement("div");
+            main.className = "field-main";
+            const title = document.createElement("div");
+            title.className = "field-title";
+            title.textContent = labels[field.id];
+            const key = document.createElement("span");
+            key.className = "field-key";
+            key.textContent = field.id;
+            title.append(key);
+            if (field.required) {
+              const required = document.createElement("span");
+              required.className = "required";
+              required.textContent = "OBLIGATORIU";
+              title.append(required);
+            }
+            const labelInput = document.createElement("input");
+            labelInput.type = "text";
+            labelInput.maxLength = 60;
+            labelInput.value = field.label;
+            labelInput.setAttribute("aria-label", `Etichetă pentru ${labels[field.id]}`);
+            labelInput.addEventListener("input", () => {
+              field.label = labelInput.value;
+              renderPreview();
+            });
+            main.append(title, labelInput);
+
+            const actions = document.createElement("div");
+            actions.className = "field-actions";
+            const moveControls = document.createElement("div");
+            moveControls.className = "move-controls";
+            for (const [direction, icon] of [["up", "↑"], ["down", "↓"]]) {
+              const button = document.createElement("button");
+              button.type = "button";
+              button.textContent = icon;
+              button.setAttribute("aria-label", `${direction === "up" ? "Mută în sus" : "Mută în jos"} câmpul ${field.label}`);
+              button.addEventListener("click", () => moveBy(field.id, direction));
+              moveControls.append(button);
+            }
+            const visibleLabel = document.createElement("label");
+            visibleLabel.className = "visibility";
+            const visibleInput = document.createElement("input");
+            visibleInput.type = "checkbox";
+            visibleInput.checked = field.visible;
+            visibleInput.disabled = field.id === "title";
+            visibleInput.setAttribute("aria-label", `Afișează câmpul ${field.label}`);
+            visibleInput.addEventListener("change", () => {
+              field.visible = visibleInput.checked;
+              render();
+            });
+            visibleLabel.append(visibleInput, document.createTextNode("Afișat"));
+            actions.append(moveControls, visibleLabel);
+
+            row.append(grip, main, actions);
+            row.addEventListener("dragstart", (event) => {
+              draggedId = field.id;
+              row.setAttribute("aria-grabbed", "true");
+              event.dataTransfer.effectAllowed = "move";
+              event.dataTransfer.setData("text/plain", field.id);
+            });
+            row.addEventListener("dragend", () => {
+              draggedId = null;
+              row.setAttribute("aria-grabbed", "false");
+              fieldsElement.querySelectorAll(".drag-over").forEach((item) => item.classList.remove("drag-over"));
+            });
+            row.addEventListener("dragover", (event) => {
+              event.preventDefault();
+              row.classList.add("drag-over");
+            });
+            row.addEventListener("dragleave", () => row.classList.remove("drag-over"));
+            row.addEventListener("drop", (event) => {
+              event.preventDefault();
+              row.classList.remove("drag-over");
+              moveField(draggedId || event.dataTransfer.getData("text/plain"), field.id);
+            });
+            fieldsElement.append(row);
+
+            if (field.visible) {
+              const previewField = document.createElement("div");
+              previewField.className = "preview-field";
+              const previewLabel = document.createElement("span");
+              previewLabel.textContent = `${field.label}${field.required ? " *" : ""}`;
+              const mock = document.createElement("div");
+              mock.className = `mock-input${field.id === "description" ? " multiline" : ""}`;
+              mock.textContent = controls[field.id];
+              previewField.append(previewLabel, mock);
+              previewElement.append(previewField);
+            }
+          }
+          const save = document.createElement("div");
+          save.className = "mock-button";
+          save.textContent = "Adaugă task";
+          previewElement.append(save);
+        }
+
+        function renderPreview() {
+          const fields = orderedFields().filter((field) => field.visible);
+          const oldFields = [...previewElement.querySelectorAll(".preview-field")];
+          for (let index = 0; index < fields.length; index += 1) {
+            const label = oldFields[index]?.querySelector("span");
+            if (label) label.textContent = `${fields[index].label}${fields[index].required ? " *" : ""}`;
+          }
+        }
+
+        function moveField(fromId, toId) {
+          if (!fromId || fromId === toId) return;
+          const fields = orderedFields();
+          const from = fields.findIndex((field) => field.id === fromId);
+          const to = fields.findIndex((field) => field.id === toId);
+          if (from < 0 || to < 0) return;
+          const [item] = fields.splice(from, 1);
+          fields.splice(to, 0, item);
+          fields.forEach((field, index) => { field.order = index + 1; });
+          render();
+        }
+
+        function moveBy(id, direction) {
+          const fields = orderedFields();
+          const index = fields.findIndex((field) => field.id === id);
+          const targetIndex = index + (direction === "up" ? -1 : 1);
+          if (index < 0 || targetIndex < 0 || targetIndex >= fields.length) return;
+          moveField(fields[index].id, fields[targetIndex].id);
+        }
+
+        function validateSchema(value) {
+          if (!value || value.version !== 1 || value.screen !== "task-form" || !Array.isArray(value.fields)) {
+            throw new Error("Formatul schemei nu este compatibil.");
+          }
+          const ids = new Set();
+          const fields = value.fields.map((field) => {
+            if (!knownIds.has(field.id) || ids.has(field.id)) throw new Error("Schema conține câmpuri necunoscute sau duplicate.");
+            ids.add(field.id);
+            if (typeof field.label !== "string" || field.label.trim().length < 1 || field.label.length > 60) {
+              throw new Error("Fiecare etichetă trebuie să aibă între 1 și 60 de caractere.");
+            }
+            return {
+              id: field.id,
+              label: field.label.trim(),
+              visible: field.id === "title" ? true : Boolean(field.visible),
+              order: Number(field.order),
+              required: field.id === "title"
+            };
+          });
+          if (!ids.has("title") || fields.some((field) => !Number.isInteger(field.order) || field.order < 1)) {
+            throw new Error("Schema trebuie să conțină titlul obligatoriu și ordine valide.");
+          }
+          fields.sort((a, b) => a.order - b.order).forEach((field, index) => { field.order = index + 1; });
+          return { version: 1, screen: "task-form", fields };
+        }
+
+        function schemaText() {
+          schema = validateSchema(schema);
+          return JSON.stringify(schema, null, 2);
+        }
+
+        document.querySelector("#download").addEventListener("click", () => {
+          try {
+            const blob = new Blob([schemaText()], { type: "application/json" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "taskFormSchema.json";
+            link.click();
+            URL.revokeObjectURL(link.href);
+            statusElement.textContent = "Schema JSON a fost descărcată.";
+          } catch (error) {
+            statusElement.textContent = error.message;
+          }
+        });
+
+        document.querySelector("#copy").addEventListener("click", async () => {
+          try {
+            await navigator.clipboard.writeText(schemaText());
+            statusElement.textContent = "Schema JSON a fost copiată.";
+          } catch {
+            statusElement.textContent = "Copierea nu este permisă de acest browser; folosește Descărcare.";
+          }
+        });
+
+        document.querySelector("#reset").addEventListener("click", () => {
+          schema = structuredClone(defaults);
+          statusElement.textContent = "Schema inițială a fost restaurată.";
+          render();
+        });
+
+        document.querySelector("#upload").addEventListener("change", async (event) => {
+          const [file] = event.target.files;
+          if (!file) return;
+          try {
+            schema = validateSchema(JSON.parse(await file.text()));
+            statusElement.textContent = "Schema a fost încărcată.";
+            render();
+          } catch (error) {
+            statusElement.textContent = error.message || "Fișierul JSON nu a putut fi citit.";
+          } finally {
+            event.target.value = "";
+          }
+        });
+
+        render();
+      })();
+    </script>
+  </body>
+</html>

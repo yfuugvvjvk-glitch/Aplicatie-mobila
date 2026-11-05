@@ -1,0 +1,2 @@
+[functions.task-summary]
+verify_jwt = true
