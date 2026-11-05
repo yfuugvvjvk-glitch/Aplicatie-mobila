@@ -11,7 +11,7 @@ Aplicația permite utilizatorilor să gestioneze sarcini zilnice, să le organiz
 - [Raport tehnic Word — TaskManager](./documentatie/TaskManager_Raport_Tehnic.docx): cerințe, alegerea platformei, arhitectură, funcționalități, Supabase, securitate, verificări, limitări și scenariu demonstrativ.
 - [Prezentare PowerPoint — TaskManager](./documentatie/TaskManager_Prezentare.pptx): sinteza proiectului pentru prezentarea orală.
 
-Înainte de predare, completează câmpurile pentru autor și disciplină în raport/prezentare dacă este necesar. Materialele disting între funcțiile implementate, cele condiționate de configurarea Supabase și funcțiile care nu fac parte din aplicația Expo.
+Raportul și prezentarea sunt completate cu autorul **Petrescu Cristian** și data **5 noiembrie 2026**. Materialele evaluează separat fiecare criteriu, distingând funcțiile implementate de serviciile care necesită configurare și de capabilitățile care nu fac parte din arhitectura Expo aleasă.
 
 ---
 
