@@ -12,7 +12,7 @@ Aplicația permite utilizatorilor să gestioneze sarcini zilnice, să le organiz
 - [Prezentare PowerPoint — TaskManager](./documentatie/TaskManager_Prezentare.pptx): sinteza proiectului pentru prezentarea orală.
 - [Discurs de prezentare — TaskManager](./documentatie/TaskManager_Discurs_Prezentare.docx): text de susținere de aproximativ 5 minute și repere pentru demonstrația live.
 
-Raportul, prezentarea și discursul sunt completate cu autorul **Petrescu Cristian** și data **5 noiembrie 2026**. Materialele evaluează separat fiecare criteriu, distingând funcțiile implementate de serviciile care necesită configurare și de capabilitățile care nu fac parte din arhitectura Expo aleasă.
+Raportul, prezentarea și discursul sunt completate cu autorul **Petrescu Cristian** și data **5 noiembrie 2026**. Materialele evaluează separat fiecare criteriu și documentează atât aplicația Expo, cât și editorul vizual low-code și Edge Function serverless din această versiune hibridă.
 
 ---
 
@@ -151,7 +151,9 @@ Dacă ai modificat și alte fișiere urmărite, adaugă-le explicit cu `git add 
 
 - React Native folosește **JSX declarativ**: interfața descrie ce trebuie afișat.
 - Expo simplifică rularea și build-ul fără configurare nativă manuală în fluxul managed.
-- **Limitare asumată:** proiectul este centrat pe cod JavaScript/JSX; nu oferă editor drag-and-drop/no-code. Criteriul low-code este evaluat ca abordare declarativă, nu ca funcționalitate no-code.
+- Varianta vizuală din `variants/low-code-builder/` oferă reordonare drag-and-drop, editarea etichetelor, vizibilitatea câmpurilor, previzualizare și export/import JSON fără abonament la un builder comercial.
+- Ecranul de adăugare task este randat din `src/config/taskFormSchema.json`; schema controlată vizual este model-driven și reutilizabilă în runtime-ul mobil.
+- Editorul configurează câmpurile existente ale formularului; nu generează ecrane native arbitrare și nu înlocuiește un MXDP comercial/no-code complet.
 
 #### Abordare centrată pe cod
 
@@ -164,14 +166,17 @@ Dacă ai modificat și alte fișiere urmărite, adaugă-le explicit cu `git add 
 - `TaskCard` — afișare task cu prioritate, categorie, dată, checkbox
 - `StatCard` — afișare metrică cu icon și culoare
 - `TaskContext` separă starea și logica de interfață; `src/services/` separă backend-ul de sincronizare.
-- Supabase oferă un backend gestionat (Auth, PostgreSQL și API). Este o arhitectură backend-as-a-service, **nu o implementare de microservicii**.
+- Schema exportată JSON este portabilă între editor și aplicația mobilă; poate fi importată, versionată și reutilizată fără dependență de FlutterFlow/Mendix.
+- Supabase oferă Auth, PostgreSQL și API ca BaaS. `supabase/functions/task-summary/` adaugă un endpoint serverless separat; acesta demonstrează un serviciu backend decuplat, nu o topologie completă de microservicii.
 
 #### Servicii backend, cloud și offline
 
 - Supabase Auth gestionează înregistrarea, confirmarea emailului și autentificarea prin email/parolă.
 - Task-urile și categoriile se sincronizează cu PostgreSQL prin `src/services/sync.js`.
 - Modificările offline sunt criptate local și puse într-o coadă per utilizator; sincronizarea se reia la revenirea în aplicație sau prin butonul din Profil.
+- Profilul poate solicita sumarul cloud prin Edge Function `task-summary`; accesul la rânduri continuă să fie restricționat de RLS.
 - Expo/EAS poate fi folosit separat pentru build și distribuție; configurarea unui proiect EAS/App Store/Google Play nu este inclusă.
+- Edge Function se poate dezvolta local cu Supabase CLI și se publică doar după ce proiectul Supabase este disponibil: `supabase functions deploy task-summary`.
 
 #### Securitate
 
@@ -190,6 +195,23 @@ Dacă ai modificat și alte fișiere urmărite, adaugă-le explicit cu `git add 
 - Backend-ul folosește API-uri PostgreSQL/Supabase, iar logica de sincronizare este separată de ecrane pentru a putea schimba sau extinde serviciile.
 - React Native 0.86 folosește arhitectura curentă React Native. Compatibilitatea versiunilor Expo/RN trebuie reverificată la fiecare upgrade SDK.
 
+#### Varianta low-code vizuală și metadata-driven
+
+Versiunea inițială Expo rămâne disponibilă. Proiectul include și un editor companion, fără servicii comerciale:
+
+1. Deschide `variants/low-code-builder/index.html` într-un browser.
+2. Reordonează câmpurile prin drag-and-drop sau cu butoanele săgeată; schimbă etichetele și vizibilitatea.
+3. Verifică previzualizarea, apoi descarcă `taskFormSchema.json`.
+4. Înlocuiește `src/config/taskFormSchema.json` cu fișierul exportat și repornește Expo.
+
+Runtime-ul mobil citește ordinea, etichetele și câmpurile vizibile din JSON. Titlul rămâne obligatoriu, iar editorul acceptă numai câmpuri pe care aplicația le suportă. JSON-ul poate fi versionat și reutilizat; codul sursă și IDE-ul rămân complet accesibile.
+
+#### Edge Function serverless
+
+`supabase/functions/task-summary/index.ts` este un endpoint TypeScript serverless care verifică sesiunea utilizatorului, citește numai date autorizate prin RLS și returnează un sumar. În Profil, conturile cloud pot cere acest rezumat.
+
+Pentru a-l publica, instalează Supabase CLI, autentifică-te, leagă repository-ul de Project Ref-ul tău și rulează `supabase functions deploy task-summary`. Funcția nu este activă în cloud doar pentru că fișierul este pe GitHub; după deploy, testează-o cu o sesiune autentificată. Nu configura `verify_jwt=false`.
+
 ---
 
 ## 📁 Structura proiectului
@@ -199,6 +221,8 @@ TaskManagerApp/
 ├── App.js                         # Punct de intrare
 ├── app.json                       # Configurație Expo
 ├── src/
+│   ├── config/
+│   │   └── taskFormSchema.json    # Modelul formularului folosit de runtime-ul mobil
 │   ├── context/
 │   │   └── TaskContext.js         # State global (Context API + useReducer)
 │   ├── services/
@@ -219,7 +243,12 @@ TaskManagerApp/
 │   └── utils/
 │       └── storage.js             # Cache/coadă offline criptate (AsyncStorage)
 ├── supabase/
-│   └── schema.sql                 # Tabele, indecși și politici RLS
+│   ├── schema.sql                 # Tabele, indecși și politici RLS
+│   └── functions/
+│       └── task-summary/          # Edge Function serverless pentru sumar cloud
+├── variants/
+│   └── low-code-builder/
+│       └── index.html             # Editor vizual pentru schema formularului
 ├── .env.example                  # Exemplu configurare (fără chei reale)
 └── assets/                        # Iconuri și splash screen
 ```
