@@ -10,8 +10,9 @@ Aplicația permite utilizatorilor să gestioneze sarcini zilnice, să le organiz
 
 - [Raport tehnic Word — TaskManager](./documentatie/TaskManager_Raport_Tehnic.docx): cerințe, alegerea platformei, arhitectură, funcționalități, Supabase, securitate, verificări, limitări și scenariu demonstrativ.
 - [Prezentare PowerPoint — TaskManager](./documentatie/TaskManager_Prezentare.pptx): sinteza proiectului pentru prezentarea orală.
+- [Discurs de prezentare — TaskManager](./documentatie/TaskManager_Discurs_Prezentare.docx): text de susținere de aproximativ 5 minute și repere pentru demonstrația live.
 
-Raportul și prezentarea sunt completate cu autorul **Petrescu Cristian** și data **5 noiembrie 2026**. Materialele evaluează separat fiecare criteriu, distingând funcțiile implementate de serviciile care necesită configurare și de capabilitățile care nu fac parte din arhitectura Expo aleasă.
+Raportul, prezentarea și discursul sunt completate cu autorul **Petrescu Cristian** și data **5 noiembrie 2026**. Materialele evaluează separat fiecare criteriu, distingând funcțiile implementate de serviciile care necesită configurare și de capabilitățile care nu fac parte din arhitectura Expo aleasă.
 
 ---
 
