@@ -6,6 +6,13 @@
 
 Aplicația permite utilizatorilor să gestioneze sarcini zilnice, să le organizeze pe categorii, să urmărească progresul și să vizualizeze statistici de productivitate.
 
+## 📄 Materiale pentru predare
+
+- [Raport tehnic Word — TaskManager](./documentatie/TaskManager_Raport_Tehnic.docx): cerințe, alegerea platformei, arhitectură, funcționalități, Supabase, securitate, verificări, limitări și scenariu demonstrativ.
+- [Prezentare PowerPoint — TaskManager](./documentatie/TaskManager_Prezentare.pptx): sinteza proiectului pentru prezentarea orală.
+
+Înainte de predare, completează câmpurile pentru autor și disciplină în raport/prezentare dacă este necesar. Materialele disting între funcțiile implementate, cele condiționate de configurarea Supabase și funcțiile care nu fac parte din aplicația Expo.
+
 ---
 
 ## 📱 Pornirea aplicației pe telefon
